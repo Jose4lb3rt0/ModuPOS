@@ -1,0 +1,17 @@
+services:
+  modupos-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: ModuPOS_DB
+    ports:
+      - "1444:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=Admin.2026.Pos!
+      - MSSQL_PID=Developer
+  modupos-api:
+    image: ${DOCKER_REGISTRY-}moduposapi
+    build:
+      context: .
+      dockerfile: ModuPOS.Api/Dockerfile
+    depends_on:
+      - modupos-db
