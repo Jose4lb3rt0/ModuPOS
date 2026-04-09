@@ -6,7 +6,7 @@ using ModuPOS.Shared.Enums;
 
 namespace ModuPOS.Api.Services
 {
-    public class VentasServiceImpl : VentasService
+    public class VentasServiceImpl : IVentasService
     {
         private readonly ModuPosDbContext _db;
         private const decimal tasa_impuesto = 0.16m;

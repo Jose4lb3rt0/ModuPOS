@@ -4,7 +4,7 @@ namespace ModuPOS.Api.Services
 {
     public class VentaResult
     {
-        public VentaResult() { }
+        private VentaResult() { }
 
         public bool EsExitoso { get; private set; }
         public string? MensajeError { get; private set; }

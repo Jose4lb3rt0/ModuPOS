@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using ModuPOS.Api.Data;
 using ModuPOS.Api.Entities;
+using ModuPOS.Api.Services;
 using ModuPOS.Shared.DTOs;
 
 namespace ModuPOS.Api.Controllers
@@ -10,82 +11,54 @@ namespace ModuPOS.Api.Controllers
     [Route("api/[controller]")]
     public class ProductosController : ControllerBase
     {
-        private readonly ModuPosDbContext _db;
+        private readonly IProductosService _productosService;
 
-        public ProductosController(ModuPosDbContext db)
+        public ProductosController(IProductosService productosService)
         {
-            _db = db;
+            _productosService = productosService;
         }
 
         [HttpPost]
+        [ProducesResponseType(typeof(ProductoResponse), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
         public async Task<ActionResult<ProductoResponse>> CrearProducto(
             [FromBody] CrearProductoRequest request)
         {
-            if (await _db.Productos.AnyAsync(p => p.SKU == request.SKU)) return BadRequest($"Ya existe un producto con este SKU.");
-
-            var producto = new Producto()
+            try
             {
-                SKU = request.SKU,
-                Nombre = request.Nombre,
-                PrecioActual = request.PrecioActual,
-                Stock = request.Stock,
-            };
-
-            //persistir
-            _db.Productos.Add(producto);
-            await _db.SaveChangesAsync();
-
-            //response
-            return Ok(MapToResponse(producto));
+                var response = await _productosService.CrearProductoAsync(request);
+                return CreatedAtAction(nameof(ObtenerProductos), response);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpGet]
+        [ProducesResponseType(typeof(List<ProductoResponse>), StatusCodes.Status200OK)]
         public async Task<ActionResult<ProductoResponse>> ObtenerProductos()
         {
-            var productos = await _db.Productos
-                .Select(p => new ProductoResponse()
-                {
-                    Id = p.Id,
-                    SKU = p.SKU,
-                    Nombre = p.Nombre,
-                    PrecioActual = p.PrecioActual,
-                    Stock = p.Stock
-                }).ToListAsync();
-
+            var productos = await _productosService.ObtenerProductosAsync();
             return Ok(productos);
         }
 
         [HttpPatch]
+        [ProducesResponseType(typeof(ProductoResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<ProductoResponse>> ActualizarProducto(
             [FromBody] ActualizarProductoRequest request)
         {
-            var producto = await _db.Productos.FindAsync(request.Id);
-            if (producto == null) return NotFound($"No se encontró el producto con id {request.Id}.");
-
-            if (request.SKU != null)
-            { 
-                if (await _db.Productos.AnyAsync(p => p.SKU == request.SKU && p.Id != request.Id)) 
-                    return BadRequest($"Ya existe un producto con el SKU {request.SKU}.");
-
-                producto.SKU = request.SKU;
+            try
+            {
+                var response = await _productosService.ActualizarProductoAsync(request);
+                return response is null ? NotFound() : Ok(response);
             }
-
-            if (request.Nombre != null) producto.Nombre = request.Nombre;
-            if (request.PrecioActual != null) producto.PrecioActual = request.PrecioActual.Value;
-            if (request.Stock != null) producto.Stock = request.Stock.Value;
-
-            await _db.SaveChangesAsync();
-
-            return Ok(MapToResponse(producto));
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
-
-        public static ProductoResponse MapToResponse(Producto producto) => new()
-        {
-            Id = producto.Id,
-            Nombre = producto.Nombre,
-            PrecioActual = producto.PrecioActual,
-            SKU = producto.SKU,
-            Stock = producto.Stock,
-        };
     }
 }

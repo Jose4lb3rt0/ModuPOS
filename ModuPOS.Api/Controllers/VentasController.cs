@@ -13,9 +13,9 @@ namespace ModuPOS.Api.Controllers
     [Route("api/[controller]")]
     public class VentasController : ControllerBase
     {
-        private readonly VentasService _ventasService;
+        private readonly IVentasService _ventasService;
 
-        public VentasController(VentasService ventasService)
+        public VentasController(IVentasService ventasService)
         {
             _ventasService = ventasService;
         }

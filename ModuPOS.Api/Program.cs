@@ -9,7 +9,8 @@ builder.Services.AddDbContext<ModuPosDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Add business logic services
-builder.Services.AddScoped<VentasService, VentasServiceImpl>();
+builder.Services.AddScoped<IVentasService, VentasServiceImpl>();
+builder.Services.AddScoped<IProductosService, ProductosServiceImpl>();
 
 builder.Services.AddControllers(); 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
