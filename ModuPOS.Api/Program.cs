@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ModuPOS.Api.Data;
+using ModuPOS.Api.Middleware;
 using ModuPOS.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,6 +22,8 @@ builder.Services.AddSwaggerGen(c => {
 });
 
 var app = builder.Build();
+
+app.UseGlobalExceptionHandler(); //envuelve todo lo que venga después en el pipeline para manejar excepciones globalmente
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

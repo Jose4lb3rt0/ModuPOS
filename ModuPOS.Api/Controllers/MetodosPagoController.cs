@@ -24,15 +24,8 @@ namespace ModuPOS.Api.Controllers
         [HttpPost]
         public async Task<ActionResult<MetodoPagoResponse>> Post([FromBody] CrearMetodoPagoRequest request)
         {
-            try
-            {
-                var resultado = await _service.CrearMetodoPagoAsync(request);
-                return CreatedAtAction(nameof(Get), new { id = resultado.Id }, resultado);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            var resultado = await _service.CrearMetodoPagoAsync(request);
+            return CreatedAtAction(nameof(Get), new { id = resultado.Id }, resultado);
         }
     }
 }

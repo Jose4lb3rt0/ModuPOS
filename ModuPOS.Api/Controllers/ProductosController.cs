@@ -24,15 +24,8 @@ namespace ModuPOS.Api.Controllers
         public async Task<ActionResult<ProductoResponse>> CrearProducto(
             [FromBody] CrearProductoRequest request)
         {
-            try
-            {
-                var response = await _productosService.CrearProductoAsync(request);
-                return CreatedAtAction(nameof(ObtenerProductos), response);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            var response = await _productosService.CrearProductoAsync(request);
+            return CreatedAtAction(nameof(ObtenerProductos), response);
         }
 
         [HttpGet]
@@ -50,15 +43,8 @@ namespace ModuPOS.Api.Controllers
         public async Task<ActionResult<ProductoResponse>> ActualizarProducto(
             [FromBody] ActualizarProductoRequest request)
         {
-            try
-            {
-                var response = await _productosService.ActualizarProductoAsync(request);
-                return response is null ? NotFound() : Ok(response);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            var response = await _productosService.ActualizarProductoAsync(request);
+            return response is null ? NotFound() : Ok(response);
         }
     }
 }
