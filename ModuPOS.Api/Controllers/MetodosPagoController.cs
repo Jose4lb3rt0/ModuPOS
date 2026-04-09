@@ -10,6 +10,11 @@ namespace ModuPOS.Api.Controllers
     {
         private readonly IMetodosPagoService _service;
 
+        public MetodosPagoController(IMetodosPagoService service)
+        {
+            _service = service;
+        }
+
         [HttpGet]
         public async Task<ActionResult<IEnumerable<MetodoPagoResponse>>> Get()
         {

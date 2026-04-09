@@ -1,6 +1,4 @@
-﻿using ModuPOS.Shared.Models;
-
-namespace ModuPOS.Api.Entities
+﻿namespace ModuPOS.Api.Entities
 {
     public class MetodoPago : BaseEntity
     {
