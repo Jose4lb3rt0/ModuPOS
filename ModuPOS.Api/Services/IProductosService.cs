@@ -11,5 +11,6 @@ namespace ModuPOS.Api.Services
         Task<bool> EliminarProductoAsync(int id);
         Task<List<ProductoResponse>> BuscarProductosAsync(string termino);
         Task<ProductoResponse?> ObtenerProductoPorIdAsync(int id);
+        Task<ProductoResponse> AjustarStockAsync(AjusteStockRequest request);
     }
 }

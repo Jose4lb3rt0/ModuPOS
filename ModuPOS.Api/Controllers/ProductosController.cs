@@ -76,5 +76,13 @@ namespace ModuPOS.Api.Controllers
             return Ok(resultados);
         }
 
+        [HttpPatch("ajustar-stock")]
+        [ProducesResponseType(typeof(ProductoResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorDetails), StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<ProductoResponse>> AjustarStock([FromBody] AjusteStockRequest request)
+        {
+            var response = await _productosService.AjustarStockAsync(request);
+            return Ok(response);
+        }
     }
 }

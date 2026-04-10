@@ -117,5 +117,19 @@ namespace ModuPOS.Api.Services
             Stock = p.Stock,
         };
 
+        public async Task<ProductoResponse> AjustarStockAsync(AjusteStockRequest request)
+        {
+            var producto = await _db.Productos.FindAsync(request.ProductoId);
+
+            if (producto == null) throw new InvalidOperationException("$No se encontró el producto con ID {request.ProductoId}");
+
+            producto.Stock += request.Cantidad;
+
+            //no stock negativo
+            if (producto.Stock < 0) throw new InvalidOperationException($"El ajuste resultaría en un stock negativo para '{producto.Nombre}'.");
+
+            await _db.SaveChangesAsync();
+            return MapToResponse(producto);
+        }
     }
 }

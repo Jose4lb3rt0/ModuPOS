@@ -192,6 +192,36 @@ namespace ModuPOS.Api.Services
                 })
                 .ToListAsync();
         }
+
+        public async Task<ResumenVentasResponse> ObtenerResumenDiarioAsync(DateTime fecha)
+        {
+            var inicioDia = fecha.Date;
+            var finDia = fecha.Date.AddDays(1);
+
+            var ventasDelDia = await _db.Ventas
+                .Include(v => v.MetodoPago)
+                .Where(v => v.Fecha >= inicioDia && v.Fecha < finDia)
+                .ToListAsync();
+
+            var resumen = new ResumenVentasResponse
+            {
+                Fecha = inicioDia,
+                TotalVendido = ventasDelDia.Sum(v => v.Total),
+                CantidadVentas = ventasDelDia.Count,
+                //agrupado por metodo de pago en memoria
+                DesglosePorMetodo = ventasDelDia
+                    .GroupBy(v => v.MetodoPagoId)
+                    .Select(g => new VentasPorMetodoPagoDto
+                    {
+                        MetodoPago = g.First().MetodoPago?.Nombre ?? "Desconocido",
+                        //MetodoPago = g.First().MetodoPagoId.ToString(),
+                        Total = g.Sum(v => v.Total),
+                        Cantidad = g.Count()
+                    }).ToList()
+            };
+
+            return resumen;
+        }
     }
 }
 

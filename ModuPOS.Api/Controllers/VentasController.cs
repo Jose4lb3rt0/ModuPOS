@@ -68,5 +68,13 @@ namespace ModuPOS.Api.Controllers
             var ventas = await _ventasService.ObtenerVentasPorRangoAsync(inicio, fin);
             return Ok(ventas);
         }
+
+        [HttpGet("resumen-diario")]
+        public async Task<ActionResult<ResumenVentasResponse>> ObtenerResumenDiario([FromQuery] DateTime? fecha)
+        {
+            var fechaConsulta = fecha ?? DateTime.Now;
+            var resumen = await _ventasService.ObtenerResumenDiarioAsync(fechaConsulta);
+            return Ok(resumen);
+        }
     }
 }
