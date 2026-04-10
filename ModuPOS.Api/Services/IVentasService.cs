@@ -6,5 +6,7 @@ namespace ModuPOS.Api.Services
     {
         Task<VentaResult> RegistrarVentaAsync(RegistrarVentaRequest request);
         Task<VentaResponse?> ObtenerVentaAsync(int id);
+        Task<List<VentaResponse>> ObtenerVentasPorRangoAsync(DateTime inicio, DateTime fin);
+        Task<List<VentaResponse>> ObtenerTodasLasVentasAsync();
     }
 }

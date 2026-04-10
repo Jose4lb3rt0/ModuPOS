@@ -48,5 +48,25 @@ namespace ModuPOS.Api.Controllers
                 ? NotFound()
                 : Ok(venta);
         }
+
+        [HttpGet]
+        public async Task<ActionResult<List<VentaResponse>>> ObtenerVentas()
+        {
+            var ventas = await _ventasService.ObtenerTodasLasVentasAsync();
+            return Ok(ventas);
+        }
+
+        [HttpGet("historial")]
+        [ProducesResponseType(typeof(List<VentaResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorDetails), StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<List<VentaResponse>>> ObtenerHistorial(
+            [FromQuery] DateTime inicio,
+            [FromQuery] DateTime fin)
+        {
+            if (inicio > fin) return BadRequest("La fecha de inicio no puede ser posterior a la fecha de fin.");
+
+            var ventas = await _ventasService.ObtenerVentasPorRangoAsync(inicio, fin);
+            return Ok(ventas);
+        }
     }
 }

@@ -36,6 +36,13 @@ namespace ModuPOS.Api.Controllers
             return Ok(productos);
         }
 
+        [HttpGet("{id:int}")]
+        public async Task<ActionResult<ProductoResponse>> ObtenerProducto(int id)
+        {
+            var producto = await _productosService.ObtenerProductoPorIdAsync(id);
+            return producto is null ? NotFound() : Ok(producto);
+        }
+
         [HttpPatch]
         [ProducesResponseType(typeof(ProductoResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
@@ -56,5 +63,18 @@ namespace ModuPOS.Api.Controllers
 
             return eliminado ? NoContent() : NotFound();
         }
+
+        [HttpGet("buscar")]
+        [ProducesResponseType(typeof(List<ProductoResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorDetails), StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<List<ProductoResponse>>> BuscarProductos(
+            [FromQuery] string termino)
+        { 
+            if (string.IsNullOrWhiteSpace(termino)) return BadRequest("El término de búsqueda no puede estar vacío.");
+
+            var resultados = await _productosService.BuscarProductosAsync(termino);
+            return Ok(resultados);
+        }
+
     }
 }

@@ -123,6 +123,16 @@ namespace ModuPOS.Api.Services
             }
         }
 
+        public async Task<List<VentaResponse>> ObtenerTodasLasVentasAsync()
+        {
+            return await _db.Ventas
+                .Include(v => v.Detalles)
+                    .ThenInclude(d => d.Producto)
+                .OrderByDescending(v => v.Fecha)
+                .Select(v => MapToResponse(v)) 
+                .ToListAsync();
+        }
+
         public async Task<VentaResponse?> ObtenerVentaAsync(int id)
         {
             var venta = await _db.Ventas
@@ -151,6 +161,37 @@ namespace ModuPOS.Api.Services
                 SubtotalLinea = d.SubtotalLinea //columna computed
             }).ToList()
         };
+
+        public async Task<List<VentaResponse>> ObtenerVentasPorRangoAsync(DateTime inicio, DateTime fin)
+        {
+            var desdeUtc = inicio.Date;
+            var hastaUtc = fin.Date.AddDays(1);
+
+            return await _db.Ventas
+                .Where(v => v.Fecha >= desdeUtc && v.Fecha < hastaUtc)
+                .Include(v => v.Detalles)
+                    .ThenInclude(d => d.Producto)
+                .OrderByDescending(v => v.Fecha)   // más recientes primero
+                .Select(v => new VentaResponse
+                {
+                    Id = v.Id,
+                    Folio = v.Folio,
+                    Fecha = v.Fecha,
+                    Subtotal = v.Subtotal,
+                    Impuestos = v.Impuestos,
+                    DescuentoTotal = v.DescuentoTotal,
+                    Total = v.Total,
+                    Estado = v.Estado.ToString(),
+                    Detalles = v.Detalles.Select(d => new DetalleVentaResponse
+                    {
+                        NombreProducto = d.Producto.Nombre,
+                        Cantidad = d.Cantidad,
+                        PrecioUnitarioHistorico = d.PrecioUnitarioHistorico,
+                        SubtotalLinea = d.SubtotalLinea
+                    }).ToList()
+                })
+                .ToListAsync();
+        }
     }
 }
 

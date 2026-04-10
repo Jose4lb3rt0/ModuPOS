@@ -83,6 +83,31 @@ namespace ModuPOS.Api.Services
             return true;
         }
 
+        public async Task<List<ProductoResponse>> BuscarProductosAsync(string termino)
+        {
+            if (string.IsNullOrWhiteSpace(termino)) return new List<ProductoResponse>();
+
+            var patron = $"%{termino.Trim()}%";
+
+            return await _db.Productos
+                .Where(p => EF.Functions.Like(p.Nombre, patron)
+                         || EF.Functions.Like(p.SKU, patron))
+                .Select(p => new ProductoResponse
+                {
+                    Id = p.Id,
+                    SKU = p.SKU,
+                    Nombre = p.Nombre,
+                    PrecioActual = p.PrecioActual,
+                    Stock = p.Stock
+                }).ToListAsync();
+        }
+
+        public async Task<ProductoResponse?> ObtenerProductoPorIdAsync(int id)
+        {
+            var producto = await _db.Productos.FindAsync(id);
+            return producto is null ? null : MapToResponse(producto);
+        }
+
         private static ProductoResponse MapToResponse(Producto p) => new()
         {
             Id = p.Id,
