@@ -8,5 +8,6 @@ namespace ModuPOS.Api.Services
         Task<ProductoResponse> CrearProductoAsync(CrearProductoRequest request);
         Task<List<ProductoResponse>> ObtenerProductosAsync();
         Task<ProductoResponse?> ActualizarProductoAsync(ActualizarProductoRequest request);
+        Task<bool> EliminarProductoAsync(int id);
     }
 }

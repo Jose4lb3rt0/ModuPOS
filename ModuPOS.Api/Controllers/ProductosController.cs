@@ -46,5 +46,15 @@ namespace ModuPOS.Api.Controllers
             var response = await _productosService.ActualizarProductoAsync(request);
             return response is null ? NotFound() : Ok(response);
         }
+
+        [HttpDelete("{id:int}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> EliminarProductoAsync(int id)
+        {
+            var eliminado = await _productosService.EliminarProductoAsync(id);
+
+            return eliminado ? NoContent() : NotFound();
+        }
     }
 }

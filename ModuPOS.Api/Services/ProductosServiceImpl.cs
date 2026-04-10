@@ -71,6 +71,18 @@ namespace ModuPOS.Api.Services
             .ToListAsync();
         }
 
+        public async Task<bool> EliminarProductoAsync(int id)
+        {
+            var producto = await _db.Productos.FindAsync(id);
+            if (producto is null) return false;
+
+            producto.IsDeleted = true;
+            producto.DeletedAt = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync();
+            return true;
+        }
+
         private static ProductoResponse MapToResponse(Producto p) => new()
         {
             Id = p.Id,
@@ -79,5 +91,6 @@ namespace ModuPOS.Api.Services
             PrecioActual = p.PrecioActual,
             Stock = p.Stock,
         };
+
     }
 }
