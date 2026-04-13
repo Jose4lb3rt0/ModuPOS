@@ -1,7 +1,386 @@
-﻿@page "/productos"
+﻿@using ModuPOS.Client.Services
+@using ModuPOS.Shared.DTOs
 
-<h3>Productos</h3>
+@page "/productos"
+@inject IProductoClientService ProductoService
+@inject IJSRuntime JS
+
+<PageTitle>Catálogo de Productos</PageTitle>
+
+<div class="container-fluid py-4">
+
+    @* Cabecera *@
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Catálogo de Productos</h2>
+        <button class="btn btn-primary"
+                @onclick="AbrirModalCrear">
+            + Nuevo Producto
+        </button>
+    </div>
+
+    @* Alerta de error *@
+    @if (mensajeError is not null)
+    {
+        <div class="alert alert-danger alert-dismissible" role="alert">
+            @mensajeError
+            <button type="button" class="btn-close"
+                    @onclick="() => mensajeError = null">
+            </button>
+        </div>
+    }
+
+    @* Barra de búsqueda *@
+    <div class="row mb-3">
+        <div class="col-md-5">
+            <div class="input-group">
+                <input type="text"
+                       class="form-control"
+                       placeholder="Buscar por nombre o SKU..."
+                       @bind="terminoBusqueda"
+                       @bind:event="oninput"
+                       @onkeyup="ManejarTeclaBusqueda" />
+                <button class="btn btn-outline-secondary"
+                        @onclick="EjecutarBusqueda">
+                    Buscar
+                </button>
+                @if (!string.IsNullOrWhiteSpace(terminoBusqueda))
+                {
+                    <button class="btn btn-outline-danger"
+                            @onclick="LimpiarBusqueda">
+                        ✕
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+
+    @* Estado: cargando *@
+    @if (cargando)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    }
+    @* Estado: sin resultados *@
+    else if (productos.Count == 0)
+    {
+        <div class="alert alert-info">
+            @(string.IsNullOrWhiteSpace(terminoBusqueda)
+                ? "No hay productos registrados."
+                : $"Sin resultados para \"{terminoBusqueda}\".")
+        </div>
+    }
+    @* Tabla de productos *@
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>SKU</th>
+                        <th>Nombre</th>
+                        <th class="text-end">Precio</th>
+                        <th class="text-center">Stock</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in productos)
+                    {
+                        <tr>
+                            <td><code>@p.SKU</code></td>
+                            <td>@p.Nombre</td>
+                            <td class="text-end">@p.PrecioActual.ToString("C")</td>
+                            <td class="text-center">
+                                @* Badge *@
+                                <span class="badge @(p.Stock > 0 ? "bg-success" : "bg-danger")">
+                                    @p.Stock
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-outline-primary me-1"
+                                        @onclick="() => AbrirModalEditar(p)">
+                                    Editar
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger"
+                                        @onclick="() => ConfirmarEliminar(p)">
+                                    Eliminar
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <p class="text-muted small">
+            @productos.Count producto(s) encontrado(s).
+        </p>
+    }
+</div>
+
+@* Modal: Crear / Editar *@
+@if (mostrarModal)
+{
+    <div class="modal fade show d-block" tabindex="-1"
+         style="background:rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        @(modoEdicion ? "Editar Producto" : "Nuevo Producto")
+                    </h5>
+                    <button type="button" class="btn-close"
+                            @onclick="CerrarModal">
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    @if (errorModal is not null)
+                    {
+                        <div class="alert alert-danger">@errorModal</div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">SKU</label>
+                        <input class="form-control"
+                               @bind="formSKU"
+                               disabled="@modoEdicion"
+                               placeholder="Ej: CAFE-001" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nombre</label>
+                        <input class="form-control"
+                               @bind="formNombre"
+                               placeholder="Nombre del producto" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Precio</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" step="0.01" min="0"
+                                   class="form-control"
+                                   @bind="formPrecio" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Stock inicial</label>
+                        <input type="number" min="0"
+                               class="form-control"
+                               @bind="formStock"
+                               disabled="@modoEdicion" />
+                        @if (modoEdicion)
+                        {
+                            <div class="form-text">
+                                El stock se ajusta desde el módulo de inventario.
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-secondary"
+                            @onclick="CerrarModal"
+                            disabled="@guardando">
+                        Cancelar
+                    </button>
+                    <button class="btn btn-primary"
+                            @onclick="GuardarProducto"
+                            disabled="@guardando">
+                        @(guardando ? "Guardando..." : "Guardar")
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
 
 @code {
+    //Estado de la página
+    private List<ProductoResponse> productos = new();
+    private string? mensajeError;
+    private bool cargando = true;
+    private string terminoBusqueda = string.Empty;
 
+    //Estado del modal
+    private bool mostrarModal;
+    private bool modoEdicion;
+    private bool guardando;
+    private string? errorModal;
+    private int productoEditandoId;
+
+    //Campos del formulario
+    private string formSKU = string.Empty;
+    private string formNombre = string.Empty;
+    private decimal formPrecio;
+    private int formStock;
+
+    //Ciclo de vida
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarProductos();
+    }
+
+    //Carga de datos
+    private async Task CargarProductos()
+    {
+        cargando = true;
+        mensajeError = null;
+
+        try
+        {
+            productos = await ProductoService.ObtenerTodosAsync();
+        }
+        catch (HttpRequestException ex)
+        {
+            //La excepción viene del helper LeerRespuestaAsync
+            mensajeError = $"Error al cargar productos: {ex.Message}";
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    //Búsqueda
+    private async Task ManejarTeclaBusqueda(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await EjecutarBusqueda();
+    }
+
+    private async Task EjecutarBusqueda()
+    {
+        cargando = true;
+        mensajeError = null;
+
+        try
+        {
+            //ya maneja término vacío en un inicio y devuelve todos
+            productos = await ProductoService.BuscarAsync(terminoBusqueda);
+        }
+        catch (HttpRequestException ex)
+        {
+            mensajeError = $"Error en la búsqueda: {ex.Message}";
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private async Task LimpiarBusqueda()
+    {
+        terminoBusqueda = string.Empty;
+        await CargarProductos();
+    }
+
+    //Modal abrir
+    private void AbrirModalCrear()
+    {
+        modoEdicion = false;
+        errorModal = null;
+        formSKU = string.Empty;
+        formNombre = string.Empty;
+        formPrecio = 0;
+        formStock = 0;
+        mostrarModal = true;
+    }
+
+    private void AbrirModalEditar(ProductoResponse p)
+    {
+        modoEdicion = true;
+        errorModal = null;
+        productoEditandoId = p.Id;
+        formSKU = p.SKU;
+        formNombre = p.Nombre;
+        formPrecio = p.PrecioActual;
+        formStock = p.Stock;
+        mostrarModal = true;
+    }
+
+    private void CerrarModal()
+    {
+        mostrarModal = false;
+        errorModal = null;
+    }
+
+    //Modal guardar
+    private async Task GuardarProducto()
+    {
+        if (string.IsNullOrWhiteSpace(formNombre) || string.IsNullOrWhiteSpace(formSKU) || formPrecio <= 0)
+        {
+            errorModal = "Nombre, SKU y precio son obligatorios. El precio debe ser mayor a cero.";
+            return;
+        }
+
+        guardando = true;
+        errorModal = null;
+
+        try
+        {
+            if (modoEdicion)
+            {
+                var request = new ActualizarProductoRequest
+                {
+                    Id = productoEditandoId,
+                    Nombre = formNombre,
+                    PrecioActual = formPrecio
+                    //SKU y stock no se editan desde aquí
+                };
+                await ProductoService.ActualizarAsync(request);
+            }
+            else
+            {
+                var request = new CrearProductoRequest
+                {
+                    SKU = formSKU,
+                    Nombre = formNombre,
+                    PrecioActual = formPrecio,
+                    Stock = formStock
+                };
+                await ProductoService.CrearAsync(request);
+            }
+
+            CerrarModal();
+            await CargarProductos(); //refresca la tabla
+        }
+        catch (HttpRequestException ex)
+        {
+            //El mensaje viene del ExceptionMiddleware
+            errorModal = ex.Message;
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+
+    //Eliminar
+    private async Task ConfirmarEliminar(ProductoResponse producto)
+    {
+        //con JS Interop llamamos window.confirm() del navegador.
+        //Es la forma básica antes de tener un modal de confirmación propio.
+        var confirmo = await JS.InvokeAsync<bool>(
+            "confirm",
+            $"¿Eliminar \"{producto.Nombre}\"? Esta acción no se puede deshacer desde aquí.");
+
+        if (!confirmo) return;
+
+        try
+        {
+            var eliminado = await ProductoService.EliminarAsync(producto.Id);
+
+            if (!eliminado)
+                mensajeError = "El producto no fue encontrado.";
+            else
+                await CargarProductos(); //refresca la tabla sin recargar la página
+        }
+        catch (HttpRequestException ex)
+        {
+            mensajeError = $"Error al eliminar: {ex.Message}";
+        }
+    }
 }
