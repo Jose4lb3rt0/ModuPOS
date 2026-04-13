@@ -21,7 +21,19 @@ builder.Services.AddSwaggerGen(c => {
     c.SwaggerDoc("v1", new() { Title = "ModuPOS API", Version = "v1" });
 });
 
+// Cors
+builder.Services.AddCors(options => 
+{
+    options.AddPolicy("BlazorPolicy", policy => {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
 var app = builder.Build();
+
+app.UseCors("BlazorPolicy");
 
 app.UseGlobalExceptionHandler(); //envuelve todo lo que venga después en el pipeline para manejar excepciones globalmente
 
