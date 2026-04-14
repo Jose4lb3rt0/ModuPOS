@@ -1,4 +1,4 @@
-﻿using ModuPOS.Shared.DTOs;
+﻿using ModuPOS.Shared.DTOs.MetodoPago;
 
 namespace ModuPOS.Api.Services
 {

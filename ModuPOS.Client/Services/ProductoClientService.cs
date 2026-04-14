@@ -1,4 +1,5 @@
 ﻿using ModuPOS.Shared.DTOs;
+using ModuPOS.Shared.DTOs.Producto;
 using System.Net;
 using System.Net.Http.Json;
 using static System.Net.WebRequestMethods;

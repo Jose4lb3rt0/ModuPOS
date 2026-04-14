@@ -1,4 +1,4 @@
-﻿namespace ModuPOS.Shared.DTOs
+﻿namespace ModuPOS.Shared.DTOs.Producto
 {
     public class ActualizarProductoRequest
     {

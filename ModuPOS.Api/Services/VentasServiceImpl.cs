@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using ModuPOS.Api.Data;
 using ModuPOS.Api.Entities;
-using ModuPOS.Shared.DTOs;
+using ModuPOS.Shared.DTOs.Venta;
 using ModuPOS.Shared.Enums;
 
 namespace ModuPOS.Api.Services

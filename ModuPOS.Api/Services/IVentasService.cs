@@ -1,4 +1,4 @@
-﻿using ModuPOS.Shared.DTOs;
+﻿using ModuPOS.Shared.DTOs.Venta;
 
 namespace ModuPOS.Api.Services
 {

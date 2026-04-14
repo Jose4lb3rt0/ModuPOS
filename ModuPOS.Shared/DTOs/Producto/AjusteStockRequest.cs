@@ -4,12 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ModuPOS.Shared.DTOs
+namespace ModuPOS.Shared.DTOs.Producto
 {
-    public class ItemVentaDto
+    public class AjusteStockRequest
     {
         public int ProductoId { get; set; }
         public int Cantidad { get; set; }
-        // precio lo lee de la BD para evitar fraudes
+        public string Motivo { get; set; } = string.Empty;
     }
 }

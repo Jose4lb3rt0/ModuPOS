@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using ModuPOS.Shared.DTOs;
+using ModuPOS.Shared.DTOs.Producto;
 
 namespace ModuPOS.Api.Services
 {

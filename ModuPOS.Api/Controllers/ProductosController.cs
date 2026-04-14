@@ -4,6 +4,7 @@ using ModuPOS.Api.Data;
 using ModuPOS.Api.Entities;
 using ModuPOS.Api.Services;
 using ModuPOS.Shared.DTOs;
+using ModuPOS.Shared.DTOs.Producto;
 
 namespace ModuPOS.Api.Controllers
 {

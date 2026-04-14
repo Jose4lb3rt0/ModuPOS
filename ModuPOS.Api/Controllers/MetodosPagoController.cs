@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using ModuPOS.Api.Services;
-using ModuPOS.Shared.DTOs;
+using ModuPOS.Shared.DTOs.MetodoPago;
 
 namespace ModuPOS.Api.Controllers
 {
