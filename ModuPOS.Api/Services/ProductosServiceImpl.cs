@@ -189,7 +189,7 @@ namespace ModuPOS.Api.Services
         {
             var producto = await _db.Productos.FindAsync(request.ProductoId);
 
-            if (producto == null) throw new InvalidOperationException("$No se encontró el producto con ID {request.ProductoId}");
+            if (producto == null) throw new InvalidOperationException($"No se encontró el producto con ID {request.ProductoId}");
 
             producto.Stock += request.Cantidad;
 

@@ -1,13 +1,15 @@
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using ModuPOS.Client;
-using ModuPOS.Client.Services;
+using ModuPOS.Client.Services.Categoria;
+using ModuPOS.Client.Services.Producto;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 builder.Services.AddScoped<IProductoClientService, ProductoClientService>();
+builder.Services.AddScoped<ICategoriaClientService, CategoriaClientService>();
 
 var apiUrl = builder.Configuration["ApiUrl"] ?? throw new InvalidOperationException("Falta 'ApiUrl' en appsettings.json");
 
