@@ -13,6 +13,7 @@ builder.Services.AddDbContext<ModuPosDbContext>(options =>
 builder.Services.AddScoped<IVentasService, VentasServiceImpl>();
 builder.Services.AddScoped<IProductosService, ProductosServiceImpl>();
 builder.Services.AddScoped<IMetodosPagoService, MetodosPagoServiceImpl>();
+builder.Services.AddScoped<ICategoriasService, CategoriasServiceImpl>();
 
 builder.Services.AddControllers(); 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
