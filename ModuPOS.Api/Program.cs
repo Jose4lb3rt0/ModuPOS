@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using ModuPOS.Api.Data;
 using ModuPOS.Api.Middleware;
 using ModuPOS.Api.Services;
+using ModuPOS.Api.Settings;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,11 +10,14 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<ModuPosDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection(CloudinarySettings.Section));
+
 // Add business logic services
 builder.Services.AddScoped<IVentasService, VentasServiceImpl>();
 builder.Services.AddScoped<IProductosService, ProductosServiceImpl>();
 builder.Services.AddScoped<IMetodosPagoService, MetodosPagoServiceImpl>();
 builder.Services.AddScoped<ICategoriasService, CategoriasServiceImpl>();
+builder.Services.AddScoped<IImagenService, ImagenServiceImpl>();
 
 builder.Services.AddControllers(); 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
