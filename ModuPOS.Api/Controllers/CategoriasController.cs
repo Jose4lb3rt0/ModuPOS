@@ -16,6 +16,33 @@ namespace ModuPOS.Api.Controllers
             _service = service;
         }
 
+        [HttpPost]
+        [Consumes("multipart/form-data")]
+        [ProducesResponseType(typeof(CategoriaResponse), StatusCodes.Status201Created)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<CategoriaResponse>> Crear(
+            [FromForm] CrearCategoriaRequest request,
+            [FromForm] IFormFile? imagen,
+            [FromServices] IImagenService imagenService)
+        {
+            var resultado = await _service.CrearCategoriaAsync(request, imagen, imagenService);
+            return CreatedAtAction(nameof(ObtenerPorId), new { id = resultado.Id }, resultado);
+        }
+
+        [HttpPatch]
+        [Consumes("multipart/form-data")]
+        [ProducesResponseType(typeof(CategoriaResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<CategoriaResponse>> Actualizar(
+            [FromForm] ActualizarCategoriaRequest request,
+            [FromForm] IFormFile? imagen,
+            [FromServices] IImagenService imagenService)
+        {
+            var resultado = await _service.ActualizarCategoriaAsync(request, imagen, imagenService);
+            return resultado is null ? NotFound() : Ok(resultado);
+        }
+
         [HttpGet]
         [ProducesResponseType(typeof(List<CategoriaResponse>), StatusCodes.Status200OK)]
         public async Task<ActionResult<List<CategoriaResponse>>> ObtenerTodas()
@@ -27,27 +54,6 @@ namespace ModuPOS.Api.Controllers
         public async Task<ActionResult<CategoriaResponse>> ObtenerPorId(int id)
         {
             var resultado = await _service.ObtenerCategoriaAsync(id);
-            return resultado is null ? NotFound() : Ok(resultado);
-        }
-
-        [HttpPost]
-        [ProducesResponseType(typeof(CategoriaResponse), StatusCodes.Status201Created)]
-        [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
-        public async Task<ActionResult<CategoriaResponse>> Crear(
-        [FromBody] CrearCategoriaRequest request)
-        {
-            var resultado = await _service.CrearCategoriaAsync(request);
-            return CreatedAtAction(nameof(ObtenerPorId), new { id = resultado.Id }, resultado);
-        }
-
-        [HttpPatch]
-        [ProducesResponseType(typeof(CategoriaResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<CategoriaResponse>> Actualizar(
-        [FromBody] ActualizarCategoriaRequest request)
-        {
-            var resultado = await _service.ActualizarCategoriaAsync(request);
             return resultado is null ? NotFound() : Ok(resultado);
         }
 

@@ -17,10 +17,10 @@ namespace ModuPOS.Shared.DTOs.Categoria
 
         public int? CategoriaPadreId { get; set; }
 
-        public string? ImagenUrl { get; set; }
-        public string? ImagenNombre { get; set; }
+        //public string? ImagenUrl { get; set; }
+        //public string? ImagenNombre { get; set; }
 
-        //Precios Mayoreo
+        //precios mayoreo
         public decimal Mayoreo1 { get; set; }
         public decimal Mayoreo2 { get; set; }
         public TipoMayoreo TipoPrecioMayoreo { get; set; } = TipoMayoreo.PrecioFijo;

@@ -20,13 +20,30 @@ namespace ModuPOS.Api.Controllers
         }
 
         [HttpPost]
+        [Consumes("multipart/form-data")]
         [ProducesResponseType(typeof(ProductoResponse), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
         public async Task<ActionResult<ProductoResponse>> CrearProducto(
-            [FromBody] CrearProductoRequest request)
+            [FromForm] CrearProductoRequest request, //cambiado de FromBody a FromForm para aceptar multipart/form-data
+            [FromForm] IFormFile? imagen,
+            [FromServices] IImagenService imagenService)
         {
-            var response = await _productosService.CrearProductoAsync(request);
-            return CreatedAtAction(nameof(ObtenerProductos), response);
+            var response = await _productosService.CrearProductoAsync(request, imagen, imagenService);
+            return CreatedAtAction(nameof(ObtenerProductos), new { id = response.Id }, response);
+        }
+
+        [HttpPatch]
+        [Consumes("multipart/form-data")]
+        [ProducesResponseType(typeof(ProductoResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<ProductoResponse>> ActualizarProducto(
+            [FromForm] ActualizarProductoRequest request, //igual aqui cambiado a FromForm
+            [FromForm] IFormFile imagen,
+            [FromServices] IImagenService imagenService)
+        {
+            var response = await _productosService.ActualizarProductoAsync(request, imagen, imagenService);
+            return response is null ? NotFound() : Ok(response);
         }
 
         [HttpGet]
@@ -42,17 +59,6 @@ namespace ModuPOS.Api.Controllers
         {
             var producto = await _productosService.ObtenerProductoPorIdAsync(id);
             return producto is null ? NotFound() : Ok(producto);
-        }
-
-        [HttpPatch]
-        [ProducesResponseType(typeof(ProductoResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<ProductoResponse>> ActualizarProducto(
-            [FromBody] ActualizarProductoRequest request)
-        {
-            var response = await _productosService.ActualizarProductoAsync(request);
-            return response is null ? NotFound() : Ok(response);
         }
 
         [HttpDelete("{id:int}")]

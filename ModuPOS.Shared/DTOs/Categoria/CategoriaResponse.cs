@@ -8,31 +8,26 @@ using System.Threading.Tasks;
 
 namespace ModuPOS.Shared.DTOs.Categoria
 {
-    public class CategoriaResponse
-    {
-        public int Id { get; set; }
-        public string Nombre { get; set; } = string.Empty;
-        public string Descripcion { get; set; } = string.Empty;
-        public string Color { get; set; } = "#FFFFFF";
-        public string? PopupInformacion { get; set; }
+    public record CategoriaResponse
+    (
+        int Id,
+        string Nombre,
+        string Descripcion,
+        string Color,
+        string? PopupInformacion,
 
-        public decimal Mayoreo1 { get; set; }
-        public decimal Mayoreo2 { get; set; }
-        public TipoMayoreo TipoPrecioMayoreo { get; set; }
+        decimal Mayoreo1,
+        decimal Mayoreo2,
+        TipoMayoreo TipoPrecioMayoreo,
 
-        public int? CategoriaPadreId { get; set; }
-        public string? CategoriaPadreNombre { get; set; }
+        int? CategoriaPadreId,
+        string? CategoriaPadreNombre,
 
-        public ImagenResponse? Imagen { get; set; }
-        public int TotalProductos { get; set; }
+        int TotalProductos,
+        ImagenResponse? Imagen,
 
-        public List<CategoriaResumenResponse> Subcategorias { get; set; } = new();
-    }
+        List<CategoriaResumenResponse> Subcategorias
+    );
 
-    public class CategoriaResumenResponse
-    {
-        public int Id { get; set; }
-        public string Nombre { get; set; } = string.Empty;
-        public string Color { get; set; } = "#FFFFFF";
-    }
+    public record CategoriaResumenResponse(int Id, string Nombre, string Color);
 }

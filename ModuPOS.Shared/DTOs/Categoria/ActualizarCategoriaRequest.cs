@@ -16,13 +16,12 @@ namespace ModuPOS.Shared.DTOs.Categoria
         public string? PopupInformacion { get; set; }
         public int? CategoriaPadreId { get; set; }
 
-        //null = no tocar imagen, string vacío = quitar imagen
-        public string? ImagenUrl { get; set; }
-        public string? ImagenNombre { get; set; }
-        public bool QuitarImagen { get; set; }
-
         public decimal? Mayoreo1 { get; set; }
         public decimal? Mayoreo2 { get; set; }
         public TipoMayoreo? TipoPrecioMayoreo { get; set; }
+
+        //public string? ImagenUrl { get; set; }
+        //public string? ImagenNombre { get; set; }
+        public bool QuitarImagen { get; set; }
     }
 }

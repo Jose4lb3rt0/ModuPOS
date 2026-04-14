@@ -14,62 +14,12 @@ namespace ModuPOS.Api.Services
         public CategoriasServiceImpl(ModuPosDbContext db)
         {
             _db = db;
-        }
+        }     
 
-        public async Task<CategoriaResponse?> ActualizarCategoriaAsync(ActualizarCategoriaRequest req)
-        {
-            var categoria = await _db.Categorias
-                .Include(c => c.Imagen)
-                .FirstOrDefaultAsync(c => c.Id == req.Id);
-
-            if (categoria is null) return null;
-
-            //validar duplicado
-            if (req.Nombre is not null && req.Nombre != categoria.Nombre)
-            {
-                if (await _db.Categorias.AnyAsync(c =>
-                    c.Nombre == req.Nombre &&
-                    c.CategoriaPadreId == (req.CategoriaPadreId ?? categoria.CategoriaPadreId) &&
-                    c.Id != req.Id))
-                { 
-                    throw new InvalidOperationException($"Ya existe una categoría llamada '{req.Nombre}' en ese nivel.");
-                }
-            }
-
-            categoria.Nombre = req.Nombre?.Trim() ?? categoria.Nombre;
-            categoria.Descripcion = req.Descripcion?.Trim() ?? categoria.Descripcion;
-            categoria.Color = req.Color ?? categoria.Color;
-            categoria.PopupInformacion = req.PopupInformacion?.Trim() ?? categoria.PopupInformacion;
-            categoria.CategoriaPadreId = req.CategoriaPadreId ?? categoria.CategoriaPadreId;
-            categoria.Mayoreo1 = req.Mayoreo1 ?? categoria.Mayoreo1;
-            categoria.Mayoreo2 = req.Mayoreo2 ?? categoria.Mayoreo2;
-            categoria.TipoPrecioMayoreo = req.TipoPrecioMayoreo ?? categoria.TipoPrecioMayoreo;
-
-            if (req.QuitarImagen)
-            {
-                categoria.ImagenId = null;
-            }
-            else if (!string.IsNullOrWhiteSpace(req.ImagenUrl))
-            {
-                var nuevaImagen = new Imagen()
-                {
-                    Url = req.ImagenUrl!,
-                    Nombre = req.ImagenUrl,
-                    ProveedorId = req.ImagenUrl!,
-                    Proveedor = "Cloudinary"
-                };
-
-                _db.Imagenes.Add(nuevaImagen);
-                await _db.SaveChangesAsync();
-
-                categoria.ImagenId = nuevaImagen.Id;
-            }
-
-            await _db.SaveChangesAsync();
-            return await ObtenerCategoriaAsync(categoria.Id);
-        }
-
-        public async Task<CategoriaResponse> CrearCategoriaAsync(CrearCategoriaRequest req)
+        public async Task<CategoriaResponse> CrearCategoriaAsync(
+            CrearCategoriaRequest req,
+            IFormFile? archivoImagen,
+            IImagenService imagenService)
         {
             //verificar duplicado
             if (await _db.Categorias.AnyAsync(c => c.Nombre == req.Nombre && c.CategoriaPadreId == req.CategoriaPadreId)) 
@@ -77,6 +27,25 @@ namespace ModuPOS.Api.Services
                 throw new InvalidOperationException(
                     $"Ya existe una categoría llamada '{req.Nombre}' " +
                     $"en el mismo nivel.");
+            }
+
+            //imagen
+            Imagen? imagen = null;
+            if (archivoImagen is { Length: > 0 })
+            {
+                await using var stream = archivoImagen.OpenReadStream();
+                var subida = await imagenService.SubirAsync(stream, archivoImagen.FileName);
+
+                imagen = new Imagen()
+                {
+                    Url = subida.Url,
+                    Nombre = archivoImagen.FileName,
+                    ProveedorId = subida.PublicId, //la url actúa como id en cloudinary
+                    Proveedor = "Cloudinary"
+                };
+
+                _db.Imagenes.Add(imagen);
+                await _db.SaveChangesAsync();
             }
 
             //verificar padre existente
@@ -87,22 +56,6 @@ namespace ModuPOS.Api.Services
                     throw new InvalidOperationException(
                         $"No existe la categoría con id '{req.CategoriaPadreId.Value}'.");
                 }
-            }
-
-            //imagen proporcionada
-            Imagen? imagen = null;
-            if (!string.IsNullOrWhiteSpace(req.ImagenUrl))
-            {
-                imagen = new Imagen()
-                {
-                    Url = req.ImagenUrl!,
-                    Nombre = req.ImagenNombre ?? string.Empty,
-                    ProveedorId = req.ImagenUrl!, //la url actúa como id en cloudinary
-                    Proveedor = "Cloudinary"
-                };
-
-                _db.Imagenes.Add(imagen);
-                await _db.SaveChangesAsync();
             }
 
             var categoria = new Categoria()
@@ -122,6 +75,73 @@ namespace ModuPOS.Api.Services
             await _db.SaveChangesAsync();
 
             return await ObtenerCategoriaAsync(categoria.Id) ?? throw new InvalidOperationException("Error al recuperar la categoría recién creada.");
+        }
+
+        public async Task<CategoriaResponse?> ActualizarCategoriaAsync(
+            ActualizarCategoriaRequest req,
+            IFormFile? archivoImagen,
+            IImagenService imagenService)
+        {
+            var categoria = await _db.Categorias
+                .Include(c => c.Imagen)
+                .FirstOrDefaultAsync(c => c.Id == req.Id);
+
+            if (categoria is null) return null;
+
+            //validar duplicado
+            if (req.Nombre is not null && req.Nombre != categoria.Nombre)
+            {
+                if (await _db.Categorias.AnyAsync(c =>
+                    c.Nombre == req.Nombre &&
+                    c.CategoriaPadreId == (req.CategoriaPadreId ?? categoria.CategoriaPadreId) &&
+                    c.Id != req.Id))
+                {
+                    throw new InvalidOperationException($"Ya existe una categoría llamada '{req.Nombre}' en ese nivel.");
+                }
+            }
+
+            categoria.Nombre = req.Nombre?.Trim() ?? categoria.Nombre;
+            categoria.Descripcion = req.Descripcion?.Trim() ?? categoria.Descripcion;
+            categoria.Color = req.Color ?? categoria.Color;
+            categoria.PopupInformacion = req.PopupInformacion?.Trim() ?? categoria.PopupInformacion;
+            categoria.CategoriaPadreId = req.CategoriaPadreId ?? categoria.CategoriaPadreId;
+            categoria.Mayoreo1 = req.Mayoreo1 ?? categoria.Mayoreo1;
+            categoria.Mayoreo2 = req.Mayoreo2 ?? categoria.Mayoreo2;
+            categoria.TipoPrecioMayoreo = req.TipoPrecioMayoreo ?? categoria.TipoPrecioMayoreo;
+
+            //imagen
+            if (req.QuitarImagen || archivoImagen is { Length: > 0 })
+            {
+                if (categoria.Imagen != null)
+                {
+                    await imagenService.EliminarAsync(categoria.Imagen.ProveedorId);
+                    _db.Imagenes.Remove(categoria.Imagen);
+                    categoria.ImagenId = null;
+                }
+                //la subida es después
+            }
+
+            if (archivoImagen is { Length: > 0 })
+            {
+                await using var stream = archivoImagen.OpenReadStream();
+                var subida = await imagenService.SubirAsync(stream, archivoImagen.FileName);
+
+                var nuevaImagen = new Imagen
+                {
+                    Url = subida.Url,
+                    Nombre = archivoImagen.FileName,
+                    ProveedorId = subida.PublicId,
+                    Proveedor = "Cloudinary"
+                };
+
+                _db.Imagenes.Add(nuevaImagen);
+                await _db.SaveChangesAsync();
+
+                categoria.ImagenId = nuevaImagen.Id;
+            }
+
+            await _db.SaveChangesAsync();
+            return await ObtenerCategoriaAsync(categoria.Id);
         }
 
         public async Task<bool> EliminarCategoriaAsync(int id)
@@ -168,38 +188,27 @@ namespace ModuPOS.Api.Services
                 .ToListAsync();
         }
 
-        private static CategoriaResponse MapToResponse(Categoria c) => new()
-        {
-            Id = c.Id,
-            Nombre = c.Nombre,
-            Descripcion = c.Descripcion,
-            Color = c.Color,
-            PopupInformacion = c.PopupInformacion,
-            Mayoreo1 = c.Mayoreo1,
-            Mayoreo2 = c.Mayoreo2,
-            TipoPrecioMayoreo = c.TipoPrecioMayoreo,
+        private static CategoriaResponse MapToResponse(Categoria c) => new(
+            Id: c.Id,
+            Nombre: c.Nombre,
+            Descripcion: c.Descripcion ?? string.Empty,
+            Color: c.Color,
+            PopupInformacion: c.PopupInformacion,
 
-            CategoriaPadreId = c.CategoriaPadreId,
-            CategoriaPadreNombre = c.CategoriaPadre?.Nombre,
+            Mayoreo1: c.Mayoreo1,
+            Mayoreo2: c.Mayoreo2,
+            TipoPrecioMayoreo: c.TipoPrecioMayoreo,
 
-            TotalProductos = c.Productos?.Count ?? 0,
+            CategoriaPadreId: c.CategoriaPadreId,
+            CategoriaPadreNombre: c.CategoriaPadre?.Nombre,
 
-            Imagen = c.Imagen is null ? null : new ImagenResponse()
-            { 
-                Id = c.Imagen.Id,
-                Url = c.Imagen.Url,
-                Nombre = c.Imagen.Nombre
-            },
+            TotalProductos: c.Productos?.Count ?? 0,
 
-            Subcategorias = c.Subcategorias?
+            Imagen: c.Imagen is null ? null : new ImagenResponse(c.Imagen.Id, c.Imagen.Url, c.Imagen.Nombre),
+            Subcategorias: c.Subcategorias?
                 .Where(s => !s.IsDeleted)
-                .Select(s => new CategoriaResumenResponse()
-                {
-                    Id = s.Id,
-                    Nombre = s.Nombre,
-                    Color = s.Color,
-                })
+                .Select(s => new CategoriaResumenResponse(s.Id, s.Nombre, s.Color))
                 .ToList() ?? new()
-        };
+        );
     }
 }
