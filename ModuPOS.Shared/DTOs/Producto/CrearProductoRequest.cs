@@ -12,5 +12,10 @@ namespace ModuPOS.Shared.DTOs.Producto
         public string Nombre { get; set; } = string.Empty;
         public decimal PrecioActual { get; set; }
         public int Stock { get; set; }
+
+        public int? CategoriaId { get; set; }
+
+        public string? ImagenUrl { get; set; }
+        public string? ImagenNombre { get; set; }
     }
 }

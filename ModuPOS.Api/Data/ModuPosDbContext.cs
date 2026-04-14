@@ -55,6 +55,11 @@ namespace ModuPOS.Api.Data
                  .WithMany(c => c.Productos)
                  .HasForeignKey(p => p.CategoriaId)
                  .OnDelete(DeleteBehavior.SetNull);
+
+                e.HasOne(p => p.Imagen)
+                 .WithMany()
+                 .HasForeignKey(p => p.ImagenId)
+                 .OnDelete(DeleteBehavior.SetNull);
             });
 
             modelBuilder.Entity<MetodoPago>(e =>

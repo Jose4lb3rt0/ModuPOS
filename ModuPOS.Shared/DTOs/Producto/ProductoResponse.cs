@@ -17,5 +17,8 @@ namespace ModuPOS.Shared.DTOs.Producto
         public int? CategoriaId { get; set; }
         public string? CategoriaNombre { get; set; }
         public string? CategoriaColor { get; set; }
+
+        public int? ImagenId { get; set; }
+        public string? ImagenUrl { get; set; }
     }
 }
