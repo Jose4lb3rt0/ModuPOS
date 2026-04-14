@@ -13,6 +13,8 @@ namespace ModuPOS.Api.Data
         public DbSet<MetodoPago> MetodosPago => Set<MetodoPago>();
         public DbSet<Venta> Ventas => Set<Venta>();
         public DbSet<VentaDetalle> VentaDetalles => Set<VentaDetalle>();
+        public DbSet<Categoria> Categorias { get; set; }
+        public DbSet<Imagen> Imagenes { get; set; }
 
         //soft delete
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -38,15 +40,21 @@ namespace ModuPOS.Api.Data
             modelBuilder.Entity<Producto>().HasQueryFilter(e => !e.IsDeleted);
             modelBuilder.Entity<MetodoPago>().HasQueryFilter(e => !e.IsDeleted);
             modelBuilder.Entity<Venta>().HasQueryFilter(e => !e.IsDeleted);
+            modelBuilder.Entity<Categoria>().HasQueryFilter(e => !e.IsDeleted);
 
             modelBuilder.Entity<Producto>(e =>
             {
                 e.HasIndex(p => p.SKU).IsUnique();
                 e.Property(p => p.SKU).HasMaxLength(50).IsRequired();
                 e.Property(p => p.Nombre).HasMaxLength(100).IsRequired();
-
                 e.Property(p => p.PrecioActual).HasColumnType("decimal(18,4)");
                 e.Property(p => p.Stock).HasDefaultValue(0);
+
+                //categoria opcional
+                e.HasOne(p => p.Categoria)
+                 .WithMany(c => c.Productos)
+                 .HasForeignKey(p => p.CategoriaId)
+                 .OnDelete(DeleteBehavior.SetNull);
             });
 
             modelBuilder.Entity<MetodoPago>(e =>
@@ -97,6 +105,43 @@ namespace ModuPOS.Api.Data
                  .HasForeignKey(d => d.ProductoId)
                  .OnDelete(DeleteBehavior.Restrict); // no borrar producto si tiene detalles
             });
+
+            modelBuilder.Entity<Categoria>(e =>
+            {
+                e.HasKey(c => c.Id);
+                e.Property(c => c.Nombre).IsRequired().HasMaxLength(100);
+                e.Property(c => c.Descripcion).HasMaxLength(500);
+                e.Property(c => c.Color).HasMaxLength(10).HasDefaultValue("#FFFFFF");
+                e.Property(c => c.PopupInformacion).HasMaxLength(1000);
+
+                e.Property(c => c.Mayoreo1).HasColumnType("decimal(18, 4)");
+                e.Property(c => c.Mayoreo2).HasColumnType("decimal(18, 4)");
+                e.Property(c => c.TipoPrecioMayoreo)
+                    .HasConversion<string>()
+                    .HasMaxLength(20);
+
+                //subcategorias
+                e.HasOne(c => c.CategoriaPadre)
+                    .WithMany(c => c.Subcategorias)
+                    .HasForeignKey(c => c.CategoriaPadreId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                //imagen
+                e.HasOne(c => c.Imagen)
+                    .WithMany()
+                    .HasForeignKey(c => c.ImagenId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<Imagen>(e =>
+            {
+                e.HasKey(i => i.Id);
+                e.Property(i => i.Url).IsRequired();
+                e.Property(i => i.Nombre).HasMaxLength(200);
+                e.Property(i => i.ProveedorId).IsRequired().HasMaxLength(200);
+                e.Property(i => i.Proveedor).HasMaxLength(50).HasDefaultValue("Cloudinary");
+            });
         }
     }
 }
+
