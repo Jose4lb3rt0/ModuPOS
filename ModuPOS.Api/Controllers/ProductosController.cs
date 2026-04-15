@@ -25,10 +25,10 @@ namespace ModuPOS.Api.Controllers
         [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
         public async Task<ActionResult<ProductoResponse>> CrearProducto(
             [FromForm] CrearProductoRequest request, //cambiado de FromBody a FromForm para aceptar multipart/form-data
-            [FromForm] IFormFile? imagen,
+            IFormFile? archivoImagen,
             [FromServices] IImagenService imagenService)
         {
-            var response = await _productosService.CrearProductoAsync(request, imagen, imagenService);
+            var response = await _productosService.CrearProductoAsync(request, archivoImagen, imagenService);
             return CreatedAtAction(nameof(ObtenerProductos), new { id = response.Id }, response);
         }
 
@@ -39,10 +39,10 @@ namespace ModuPOS.Api.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<ProductoResponse>> ActualizarProducto(
             [FromForm] ActualizarProductoRequest request, //igual aqui cambiado a FromForm
-            [FromForm] IFormFile imagen,
+            IFormFile? archivoImagen,
             [FromServices] IImagenService imagenService)
         {
-            var response = await _productosService.ActualizarProductoAsync(request, imagen, imagenService);
+            var response = await _productosService.ActualizarProductoAsync(request, archivoImagen, imagenService);
             return response is null ? NotFound() : Ok(response);
         }
 

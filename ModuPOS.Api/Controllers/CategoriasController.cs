@@ -22,10 +22,10 @@ namespace ModuPOS.Api.Controllers
         [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
         public async Task<ActionResult<CategoriaResponse>> Crear(
             [FromForm] CrearCategoriaRequest request,
-            [FromForm] IFormFile? imagen,
+            IFormFile? archivoImagen,
             [FromServices] IImagenService imagenService)
         {
-            var resultado = await _service.CrearCategoriaAsync(request, imagen, imagenService);
+            var resultado = await _service.CrearCategoriaAsync(request, archivoImagen, imagenService);
             return CreatedAtAction(nameof(ObtenerPorId), new { id = resultado.Id }, resultado);
         }
 
@@ -36,10 +36,10 @@ namespace ModuPOS.Api.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<CategoriaResponse>> Actualizar(
             [FromForm] ActualizarCategoriaRequest request,
-            [FromForm] IFormFile? imagen,
+            IFormFile? archivoImagen,
             [FromServices] IImagenService imagenService)
         {
-            var resultado = await _service.ActualizarCategoriaAsync(request, imagen, imagenService);
+            var resultado = await _service.ActualizarCategoriaAsync(request, archivoImagen, imagenService);
             return resultado is null ? NotFound() : Ok(resultado);
         }
 

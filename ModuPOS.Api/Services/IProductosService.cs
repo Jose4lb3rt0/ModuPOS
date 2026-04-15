@@ -5,8 +5,8 @@ namespace ModuPOS.Api.Services
 {
     public interface IProductosService
     {
-        Task<ProductoResponse> CrearProductoAsync(CrearProductoRequest request, IFormFile? imagen, IImagenService imagenService);
-        Task<ProductoResponse?> ActualizarProductoAsync(ActualizarProductoRequest request, IFormFile? imagen, IImagenService imagenService);
+        Task<ProductoResponse> CrearProductoAsync(CrearProductoRequest request, IFormFile? archivoImagen, IImagenService imagenService);
+        Task<ProductoResponse?> ActualizarProductoAsync(ActualizarProductoRequest request, IFormFile? archivoImagen, IImagenService imagenService);
         Task<List<ProductoResponse>> ObtenerProductosAsync();
         Task<bool> EliminarProductoAsync(int id);
         Task<List<ProductoResponse>> BuscarProductosAsync(string termino);
