@@ -1,8 +1,11 @@
-﻿@using ModuPOS.Client.Services
+﻿@using ModuPOS.Client.Services.Producto
+@using ModuPOS.Client.Services.Categoria
 @using ModuPOS.Shared.DTOs.Producto
+@using ModuPOS.Shared.DTOs.Categoria
 
 @page "/productos"
 @inject IProductoClientService ProductoService
+@inject ICategoriaClientService CategoriaService
 @inject IJSRuntime JS
 
 <PageTitle>Catálogo de Productos</PageTitle>
@@ -12,58 +15,43 @@
     @* Cabecera *@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="mb-0">Catálogo de Productos</h2>
-        <button class="btn btn-primary"
-                @onclick="AbrirModalCrear">
+        <button class="btn btn-primary" @onclick="AbrirModalCrear">
             + Nuevo Producto
         </button>
     </div>
 
-    @* Alerta de error *@
+    @* Alerta *@
     @if (mensajeError is not null)
     {
-        <div class="alert alert-danger alert-dismissible" role="alert">
+        <div class="alert alert-danger alert-dismissible">
             @mensajeError
-            <button type="button" class="btn-close"
-                    @onclick="() => mensajeError = null">
-            </button>
+            <button class="btn-close" @onclick="() => mensajeError = null"></button>
         </div>
     }
 
-    @* Barra de búsqueda *@
+    @* Búsqueda *@
     <div class="row mb-3">
         <div class="col-md-5">
             <div class="input-group">
-                <input type="text"
-                       class="form-control"
-                       placeholder="Buscar por nombre o SKU..."
-                       @bind="terminoBusqueda"
-                       @bind:event="oninput"
+                <input class="form-control" placeholder="Buscar por nombre o SKU..."
+                       @bind="terminoBusqueda" @bind:event="oninput"
                        @onkeyup="ManejarTeclaBusqueda" />
-                <button class="btn btn-outline-secondary"
-                        @onclick="EjecutarBusqueda">
-                    Buscar
-                </button>
+                <button class="btn btn-outline-secondary" @onclick="EjecutarBusqueda">Buscar</button>
                 @if (!string.IsNullOrWhiteSpace(terminoBusqueda))
                 {
-                    <button class="btn btn-outline-danger"
-                            @onclick="LimpiarBusqueda">
-                        ✕
-                    </button>
+                    <button class="btn btn-outline-danger" @onclick="LimpiarBusqueda">✕</button>
                 }
             </div>
         </div>
     </div>
 
-    @* Estado: cargando *@
+    @* Tabla *@
     @if (cargando)
     {
         <div class="text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Cargando...</span>
-            </div>
+            <div class="spinner-border text-primary"></div>
         </div>
     }
-    @* Estado: sin resultados *@
     else if (productos.Count == 0)
     {
         <div class="alert alert-info">
@@ -72,15 +60,16 @@
                 : $"Sin resultados para \"{terminoBusqueda}\".")
         </div>
     }
-    @* Tabla de productos *@
     else
     {
         <div class="table-responsive">
             <table class="table table-hover align-middle">
                 <thead class="table-dark">
                     <tr>
+                        <th style="width:60px"></th>
                         <th>SKU</th>
                         <th>Nombre</th>
+                        <th>Categoría</th>
                         <th class="text-end">Precio</th>
                         <th class="text-center">Stock</th>
                         <th class="text-center">Acciones</th>
@@ -90,11 +79,37 @@
                     @foreach (var p in productos)
                     {
                         <tr>
+                            <td>
+                                @if (p.Imagen?.Url is not null)
+                                {
+                                    <img src="@p.Imagen.Url" alt="@p.Nombre"
+                                         class="rounded" style="width:44px;height:44px;object-fit:cover" />
+                                }
+                                else
+                                {
+                                    <div class="rounded bg-light d-flex align-items-center justify-content-center"
+                                         style="width:44px;height:44px;color:#aaa;font-size:20px">
+                                        &#128247;
+                                    </div>
+                                }
+                            </td>
                             <td><code>@p.SKU</code></td>
                             <td>@p.Nombre</td>
+                            <td>
+                                @if (p.Categoria is not null)
+                                {
+                                    <span class="badge"
+                                          style="background-color:@p.Categoria.Color;color:#333">
+                                        @p.Categoria.Nombre
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">—</span>
+                                }
+                            </td>
                             <td class="text-end">@p.PrecioActual.ToString("C")</td>
                             <td class="text-center">
-                                @* Badge *@
                                 <span class="badge @(p.Stock > 0 ? "bg-success" : "bg-danger")">
                                     @p.Stock
                                 </span>
@@ -114,85 +129,111 @@
                 </tbody>
             </table>
         </div>
-        <p class="text-muted small">
-            @productos.Count producto(s) encontrado(s).
-        </p>
+        <p class="text-muted small">@productos.Count producto(s) encontrado(s).</p>
     }
 </div>
 
-@* Modal: Crear / Editar *@
+@* Modal *@
 @if (mostrarModal)
 {
-    <div class="modal fade show d-block" tabindex="-1"
-         style="background:rgba(0,0,0,0.5)">
-        <div class="modal-dialog">
+    <div class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,0.5)">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
-
                 <div class="modal-header">
                     <h5 class="modal-title">
                         @(modoEdicion ? "Editar Producto" : "Nuevo Producto")
                     </h5>
-                    <button type="button" class="btn-close"
-                            @onclick="CerrarModal">
-                    </button>
+                    <button class="btn-close" @onclick="CerrarModal"></button>
                 </div>
-
                 <div class="modal-body">
                     @if (errorModal is not null)
                     {
                         <div class="alert alert-danger">@errorModal</div>
                     }
 
-                    <div class="mb-3">
-                        <label class="form-label">SKU</label>
-                        <input class="form-control"
-                               @bind="formSKU"
-                               disabled="@modoEdicion"
-                               placeholder="Ej: CAFE-001" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Nombre</label>
-                        <input class="form-control"
-                               @bind="formNombre"
-                               placeholder="Nombre del producto" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Precio</label>
-                        <div class="input-group">
-                            <span class="input-group-text">$</span>
-                            <input type="number" step="0.01" min="0"
-                                   class="form-control"
-                                   @bind="formPrecio" />
+                    <div class="row g-3">
+                        @* Columna izquierda *@
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label class="form-label">SKU</label>
+                                <input class="form-control" @bind="formSKU"
+                                       disabled="@modoEdicion" placeholder="Ej: CAFE-001" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Nombre</label>
+                                <input class="form-control" @bind="formNombre"
+                                       placeholder="Nombre del producto" />
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-label">Precio</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" step="0.01" min="0"
+                                               class="form-control" @bind="formPrecio" />
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">Stock</label>
+                                    <input type="number" min="0" class="form-control"
+                                           @bind="formStock" disabled="@modoEdicion" />
+                                    @if (modoEdicion)
+                                    {
+                                        <div class="form-text">Ajusta desde inventario.</div>
+                                    }
+                                </div>
+                            </div>
+                            <div class="mb-3 mt-2">
+                                <label class="form-label">Categoría</label>
+                                <select class="form-select" @bind="formCategoriaId">
+                                    <option value="">— Sin categoría —</option>
+                                    @foreach (var cat in categorias)
+                                    {
+                                        <option value="@cat.Id">@cat.Nombre</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+
+                        @* Columna derecha — imagen *@
+                        <div class="col-md-4">
+                            <label class="form-label">Imagen</label>
+                            @* Preview: muestra imagen existente o la recién seleccionada *@
+                            <div class="border rounded d-flex align-items-center justify-content-center mb-2"
+                                 style="height:160px;background:#f8f9fa;overflow:hidden">
+                                @if (previewUrl is not null)
+                                {
+                                    <img src="@previewUrl" alt="preview"
+                                         style="max-height:100%;max-width:100%;object-fit:contain" />
+                                }
+                                else
+                                {
+                                    <span class="text-muted" style="font-size:40px">&#128247;</span>
+                                }
+                            </div>
+                            <InputFile OnChange="SeleccionarImagen"
+                                       accept="image/*"
+                                       class="form-control form-control-sm mb-1" />
+                            @if (previewUrl is not null)
+                            {
+                                <button class="btn btn-sm btn-outline-danger w-100"
+                                        @onclick="QuitarImagen">
+                                    Quitar imagen
+                                </button>
+                            }
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Stock inicial</label>
-                        <input type="number" min="0"
-                               class="form-control"
-                               @bind="formStock"
-                               disabled="@modoEdicion" />
-                        @if (modoEdicion)
-                        {
-                            <div class="form-text">
-                                El stock se ajusta desde el módulo de inventario.
-                            </div>
-                        }
-                    </div>
                 </div>
-
                 <div class="modal-footer">
-                    <button class="btn btn-secondary"
-                            @onclick="CerrarModal"
+                    <button class="btn btn-secondary" @onclick="CerrarModal"
                             disabled="@guardando">
                         Cancelar
                     </button>
-                    <button class="btn btn-primary"
-                            @onclick="GuardarProducto"
+                    <button class="btn btn-primary" @onclick="GuardarProducto"
                             disabled="@guardando">
                         @(guardando ? "Guardando..." : "Guardar")
                     </button>
                 </div>
-
             </div>
         </div>
     </div>
@@ -201,6 +242,7 @@
 @code {
     //Estado de la página
     private List<ProductoResponse> productos = new();
+    private List<CategoriaResumenResponse> categorias = new();
     private string? mensajeError;
     private bool cargando = true;
     private string terminoBusqueda = string.Empty;
@@ -217,11 +259,25 @@
     private string formNombre = string.Empty;
     private decimal formPrecio;
     private int formStock;
+    private int? formCategoriaId;
+
+    //Imagen
+    private IBrowserFile? imagenSeleccionada;
+    private string? previewUrl;
+    private bool quitarImagenFlag;
 
     //Ciclo de vida
     protected override async Task OnInitializedAsync()
     {
-        await CargarProductos();
+        //await CargarProductos();
+
+        //Carga paralela
+        var tareas = new[]
+        {
+            CargarProductos(),
+            CargarCategorias()
+        };
+        await Task.WhenAll(tareas);
     }
 
     //Carga de datos
@@ -230,19 +286,22 @@
         cargando = true;
         mensajeError = null;
 
+        try { productos = await ProductoService.ObtenerTodosAsync(); }
+        catch (HttpRequestException ex) { mensajeError = $"Error al cargar productos: {ex.Message}"; } //La excepción viene del helper LeerRespuestaAsync
+        finally { cargando = false; }
+    }
+
+    private async Task CargarCategorias()
+    {
+        cargando = true;
+        mensajeError = null;
+
         try
         {
-            productos = await ProductoService.ObtenerTodosAsync();
+            var todas = await CategoriaService.ObtenerTodasAsync();
+            categorias = todas.Select(c => new CategoriaResumenResponse(c.Id, c.Nombre, c.Color)).ToList();
         }
-        catch (HttpRequestException ex)
-        {
-            //La excepción viene del helper LeerRespuestaAsync
-            mensajeError = $"Error al cargar productos: {ex.Message}";
-        }
-        finally
-        {
-            cargando = false;
-        }
+        catch { }
     }
 
     //Búsqueda
@@ -256,25 +315,37 @@
         cargando = true;
         mensajeError = null;
 
-        try
-        {
-            //ya maneja término vacío en un inicio y devuelve todos
-            productos = await ProductoService.BuscarAsync(terminoBusqueda);
-        }
-        catch (HttpRequestException ex)
-        {
-            mensajeError = $"Error en la búsqueda: {ex.Message}";
-        }
-        finally
-        {
-            cargando = false;
-        }
+        try { productos = await ProductoService.BuscarAsync(terminoBusqueda); }
+        catch (HttpRequestException ex) { mensajeError = $"Error en la búsqueda: {ex.Message}"; }
+        finally { cargando = false; }
     }
 
     private async Task LimpiarBusqueda()
     {
         terminoBusqueda = string.Empty;
         await CargarProductos();
+    }
+
+    //Imagen
+    private async Task SeleccionarImagen(InputFileChangeEventArgs e)
+    {
+        imagenSeleccionada = e.File;
+        quitarImagenFlag = false;
+
+        using var stream = imagenSeleccionada.OpenReadStream(5 * 1024 * 1024);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+
+        var base64 = Convert.ToBase64String(ms.ToArray());
+        previewUrl = $"data:{imagenSeleccionada.ContentType};base64,{base64}";
+    }
+
+    //Quitar imagen
+    private void QuitarImagen()
+    {
+        imagenSeleccionada = null;
+        previewUrl = null;
+        quitarImagenFlag = true;
     }
 
     //Modal abrir
@@ -286,6 +357,12 @@
         formNombre = string.Empty;
         formPrecio = 0;
         formStock = 0;
+
+        formCategoriaId = null;
+        imagenSeleccionada = null;
+        previewUrl = null;
+        quitarImagenFlag = false;
+
         mostrarModal = true;
     }
 
@@ -298,6 +375,12 @@
         formNombre = p.Nombre;
         formPrecio = p.PrecioActual;
         formStock = p.Stock;
+
+        formCategoriaId = p.Categoria?.Id;
+        imagenSeleccionada = null;
+        previewUrl = p.Imagen?.Url;
+        quitarImagenFlag = false;
+
         mostrarModal = true;
     }
 
@@ -327,10 +410,12 @@
                 {
                     Id = productoEditandoId,
                     Nombre = formNombre,
-                    PrecioActual = formPrecio
+                    PrecioActual = formPrecio,
+                    CategoriaId = formCategoriaId,
+                    QuitarImagen = quitarImagenFlag
                     //SKU y stock no se editan desde aquí
                 };
-                await ProductoService.ActualizarAsync(request);
+                await ProductoService.ActualizarAsync(request, imagenSeleccionada);
             }
             else
             {
@@ -339,32 +424,25 @@
                     SKU = formSKU,
                     Nombre = formNombre,
                     PrecioActual = formPrecio,
-                    Stock = formStock
+                    Stock = formStock,
+                    CategoriaId = formCategoriaId
                 };
-                await ProductoService.CrearAsync(request);
+                await ProductoService.CrearAsync(request, imagenSeleccionada);
             }
 
             CerrarModal();
             await CargarProductos(); //refresca la tabla
         }
-        catch (HttpRequestException ex)
-        {
-            //El mensaje viene del ExceptionMiddleware
-            errorModal = ex.Message;
-        }
-        finally
-        {
-            guardando = false;
-        }
+        catch (HttpRequestException ex) { errorModal = ex.Message; } //El mensaje viene del ExceptionMiddleware
+        catch (InvalidOperationException ex) { errorModal = ex.Message; } 
+        finally { guardando = false; }
     }
 
     //Eliminar
     private async Task ConfirmarEliminar(ProductoResponse producto)
     {
-        //con JS Interop llamamos window.confirm() del navegador.
-        //Es la forma básica antes de tener un modal de confirmación propio.
-        var confirmo = await JS.InvokeAsync<bool>(
-            "confirm",
+        //JS Interop llama a window.confirm() de JS
+        var confirmo = await JS.InvokeAsync<bool>("confirm",
             $"¿Eliminar \"{producto.Nombre}\"? Esta acción no se puede deshacer desde aquí.");
 
         if (!confirmo) return;
@@ -373,14 +451,9 @@
         {
             var eliminado = await ProductoService.EliminarAsync(producto.Id);
 
-            if (!eliminado)
-                mensajeError = "El producto no fue encontrado.";
-            else
-                await CargarProductos(); //refresca la tabla sin recargar la página
+            if (!eliminado) mensajeError = "El producto no fue encontrado.";
+            else await CargarProductos(); //no recarga la pagina
         }
-        catch (HttpRequestException ex)
-        {
-            mensajeError = $"Error al eliminar: {ex.Message}";
-        }
+        catch (HttpRequestException ex) { mensajeError = $"Error al eliminar: {ex.Message}"; }
     }
 }
