@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using ModuPOS.Api.Data;
 using ModuPOS.Api.Entities;
+using ModuPOS.Shared.DTOs;
 using ModuPOS.Shared.DTOs.Categoria;
 using ModuPOS.Shared.DTOs.Imagen;
 
@@ -14,57 +15,45 @@ namespace ModuPOS.Api.Services
         public CategoriasServiceImpl(ModuPosDbContext db)
         {
             _db = db;
-        }     
+        }
 
+        //1. CREAR
         public async Task<CategoriaResponse> CrearCategoriaAsync(
             CrearCategoriaRequest req,
             IFormFile? archivoImagen,
             IImagenService imagenService)
         {
-            //verificar duplicado
-            if (await _db.Categorias.AnyAsync(c => c.Nombre == req.Nombre && c.CategoriaPadreId == req.CategoriaPadreId)) 
+            //entradas
+            string nombreLimpio = req.Nombre.Trim();
+            int? padreId = (req.CategoriaPadreId <= 0) ? null : req.CategoriaPadreId;
+
+            //validar nombre unico en el nivel
+            bool existeNombre = await _db.Categorias.AnyAsync(c =>
+                c.Nombre == nombreLimpio &&
+                c.CategoriaPadreId == padreId &&
+                !c.IsDeleted);
+
+            if (existeNombre)
+                throw new InvalidOperationException($"Ya existe una categoría llamada '{nombreLimpio}' en este nivel.");
+
+            //validar existencia
+            if (padreId.HasValue)
             {
-                throw new InvalidOperationException(
-                    $"Ya existe una categoría llamada '{req.Nombre}' " +
-                    $"en el mismo nivel.");
+                bool padreExiste = await _db.Categorias.AnyAsync(c => c.Id == padreId.Value && !c.IsDeleted);
+                if (!padreExiste)
+                    throw new InvalidOperationException($"La categoría padre con Id {padreId} no existe.");
             }
 
             //imagen
-            Imagen? imagen = null;
-            if (archivoImagen is { Length: > 0 })
-            {
-                await using var stream = archivoImagen.OpenReadStream();
-                var subida = await imagenService.SubirAsync(stream, archivoImagen.FileName);
-
-                imagen = new Imagen()
-                {
-                    Url = subida.Url,
-                    Nombre = archivoImagen.FileName,
-                    ProveedorId = subida.PublicId, //la url actúa como id en cloudinary
-                    Proveedor = "Cloudinary"
-                };
-
-                _db.Imagenes.Add(imagen);
-                await _db.SaveChangesAsync();
-            }
-
-            //verificar padre existente
-            if (req.CategoriaPadreId.HasValue)
-            {
-                if (await _db.Categorias.AnyAsync(c => c.Id == req.CategoriaPadreId.Value) == false)
-                {
-                    throw new InvalidOperationException(
-                        $"No existe la categoría con id '{req.CategoriaPadreId.Value}'.");
-                }
-            }
+            var imagen = await imagenService.SubirYPersistirAsync(archivoImagen, _db);
 
             var categoria = new Categoria()
             {
-                Nombre = req.Nombre.Trim(),
+                Nombre = nombreLimpio,
                 Descripcion = req.Descripcion.Trim(),
                 Color = req.Color,
                 PopupInformacion = req.PopupInformacion?.Trim(),
-                CategoriaPadreId = req.CategoriaPadreId,
+                CategoriaPadreId = padreId,
                 ImagenId = imagen?.Id,
                 Mayoreo1 = req.Mayoreo1,
                 Mayoreo2 = req.Mayoreo2,
@@ -72,15 +61,25 @@ namespace ModuPOS.Api.Services
             };
 
             _db.Categorias.Add(categoria);
-            await _db.SaveChangesAsync();
+
+            try
+            {
+                await _db.SaveChangesAsync();
+            }
+            catch
+            {
+                if (imagen is not null) await imagenService.EliminarAsync(imagen.ProveedorId);
+                throw;
+            }
 
             return await ObtenerCategoriaAsync(categoria.Id) ?? throw new InvalidOperationException("Error al recuperar la categoría recién creada.");
         }
 
+        //2. ACTUALIZAR
         public async Task<CategoriaResponse?> ActualizarCategoriaAsync(
-            ActualizarCategoriaRequest req,
-            IFormFile? archivoImagen,
-            IImagenService imagenService)
+           ActualizarCategoriaRequest req,
+           IFormFile? archivoImagen,
+           IImagenService imagenService)
         {
             var categoria = await _db.Categorias
                 .Include(c => c.Imagen)
@@ -88,62 +87,130 @@ namespace ModuPOS.Api.Services
 
             if (categoria is null) return null;
 
-            //validar duplicado
-            if (req.Nombre is not null && req.Nombre != categoria.Nombre)
+            var padreId = req.CategoriaPadreId <= 0 ? null : req.CategoriaPadreId;
+
+            //controlar jerarquia
+            if (padreId.HasValue)
             {
-                if (await _db.Categorias.AnyAsync(c =>
-                    c.Nombre == req.Nombre &&
-                    c.CategoriaPadreId == (req.CategoriaPadreId ?? categoria.CategoriaPadreId) &&
-                    c.Id != req.Id))
-                {
-                    throw new InvalidOperationException($"Ya existe una categoría llamada '{req.Nombre}' en ese nivel.");
-                }
+                //una categoría no puede ser su propio padre
+                if (padreId.Value == req.Id)
+                    throw new InvalidOperationException(
+                        "Una categoría no puede ser su propio padre.");
+
+                //y tampoco puede moverse a una subcategoría propia
+                if (await EsDescendienteAsync(req.Id, padreId.Value))
+                    throw new InvalidOperationException(
+                        "No se puede mover una categoría a una de sus propias subcategorías.");
+
+                await ValidarPadreExisteAsync(padreId);
             }
+
+            if (req.Nombre is not null && req.Nombre.Trim() != categoria.Nombre)
+                await ValidarNombreUnicoAsync(
+                    req.Nombre.Trim(),
+                    padreId ?? categoria.CategoriaPadreId,
+                    excluirId: req.Id);
 
             categoria.Nombre = req.Nombre?.Trim() ?? categoria.Nombre;
             categoria.Descripcion = req.Descripcion?.Trim() ?? categoria.Descripcion;
             categoria.Color = req.Color ?? categoria.Color;
             categoria.PopupInformacion = req.PopupInformacion?.Trim() ?? categoria.PopupInformacion;
-            categoria.CategoriaPadreId = req.CategoriaPadreId ?? categoria.CategoriaPadreId;
+            categoria.CategoriaPadreId = padreId ?? categoria.CategoriaPadreId;
             categoria.Mayoreo1 = req.Mayoreo1 ?? categoria.Mayoreo1;
             categoria.Mayoreo2 = req.Mayoreo2 ?? categoria.Mayoreo2;
             categoria.TipoPrecioMayoreo = req.TipoPrecioMayoreo ?? categoria.TipoPrecioMayoreo;
 
-            //imagen
             if (req.QuitarImagen || archivoImagen is { Length: > 0 })
             {
-                if (categoria.Imagen != null)
+                if (categoria.Imagen is not null)
                 {
                     await imagenService.EliminarAsync(categoria.Imagen.ProveedorId);
                     _db.Imagenes.Remove(categoria.Imagen);
                     categoria.ImagenId = null;
                 }
-                //la subida es después
             }
 
             if (archivoImagen is { Length: > 0 })
             {
-                await using var stream = archivoImagen.OpenReadStream();
-                var subida = await imagenService.SubirAsync(stream, archivoImagen.FileName);
-
-                var nuevaImagen = new Imagen
-                {
-                    Url = subida.Url,
-                    Nombre = archivoImagen.FileName,
-                    ProveedorId = subida.PublicId,
-                    Proveedor = "Cloudinary"
-                };
-
-                _db.Imagenes.Add(nuevaImagen);
-                await _db.SaveChangesAsync();
-
-                categoria.ImagenId = nuevaImagen.Id;
+                var nueva = await imagenService.SubirYPersistirAsync(archivoImagen, _db);
+                if (nueva is not null)
+                    categoria.ImagenId = nueva.Id;
             }
 
             await _db.SaveChangesAsync();
-            return await ObtenerCategoriaAsync(categoria.Id);
+            return await ProyectarAsync(categoria.Id);
         }
 
+        //3. OBTENER TODAS CON PAGINACION
+        public async Task<PagedResponse<CategoriaResponse>> ObtenerCategoriasAsync(int pageIndex, int pageSize)
+        {
+            pageSize = Math.Clamp(pageSize, 1, 100);
+            pageIndex = Math.Max(pageIndex, 0);
+
+            var total = await _db.Categorias.CountAsync();
+
+            //proyección directa a tipo anónimo, EF genera sql plano
+            var raw = await _db.Categorias
+                .OrderBy(c => c.Nombre)
+                .Skip(pageIndex * pageSize)
+                .Take(pageSize)
+                .Select(c => new
+                {
+                    c.Id,
+                    c.Nombre,
+                    c.Descripcion,
+                    c.Color,
+                    c.PopupInformacion,
+                    c.Mayoreo1,
+                    c.Mayoreo2,
+                    c.TipoPrecioMayoreo,
+                    c.CategoriaPadreId,
+                    CategoriaPadreNombre = c.CategoriaPadre != null
+                        ? c.CategoriaPadre.Nombre : null,
+                    TotalProductos = c.Productos.Count(p => !p.IsDeleted),
+                    Imagen = c.Imagen == null ? (object?)null : new
+                    {
+                        c.Imagen.Id,
+                        c.Imagen.Url,
+                        c.Imagen.Nombre
+                    },
+                    Subcategorias = c.Subcategorias
+                        .Where(s => !s.IsDeleted)
+                        .Select(s => new { s.Id, s.Nombre, s.Color })
+                        .ToList()
+                })
+                .ToListAsync();
+
+            var items = raw.Select(c => new CategoriaResponse(
+                Id: c.Id,
+                Nombre: c.Nombre,
+                Descripcion: c.Descripcion ?? string.Empty,
+                Color: c.Color,
+                PopupInformacion: c.PopupInformacion,
+                Mayoreo1: c.Mayoreo1,
+                Mayoreo2: c.Mayoreo2,
+                TipoPrecioMayoreo: c.TipoPrecioMayoreo,
+                CategoriaPadreId: c.CategoriaPadreId,
+                CategoriaPadreNombre: c.CategoriaPadreNombre,
+                TotalProductos: c.TotalProductos,
+                Imagen: c.Imagen is null ? null
+                                        : new ImagenResponse(
+                                            ((dynamic)c.Imagen).Id,
+                                            ((dynamic)c.Imagen).Url,
+                                            ((dynamic)c.Imagen).Nombre),
+                Subcategorias: c.Subcategorias
+                    .Select(s => new CategoriaResumenResponse(s.Id, s.Nombre, s.Color))
+                    .ToList()
+            )).ToList();
+
+            return PagedResponse<CategoriaResponse>.Montar(items, total, pageIndex, pageSize);
+        }
+
+        //4. OBTENER POR ID
+        public async Task<CategoriaResponse?> ObtenerCategoriaAsync(int id) => 
+            await ProyectarAsync(id);
+
+        //5. ELIMINAR
         public async Task<bool> EliminarCategoriaAsync(int id)
         {
             var categoria = await _db.Categorias
@@ -165,50 +232,106 @@ namespace ModuPOS.Api.Services
             return true;
         }
 
-        public async Task<CategoriaResponse?> ObtenerCategoriaAsync(int id)
+        //HELPER PROYECCIÓN DETALLADA POR ID
+        private async Task<CategoriaResponse?> ProyectarAsync(int id)
         {
-            var categoria = await _db.Categorias
-                .Include(c => c.Imagen)
-                .Include(c => c.CategoriaPadre)
-                .Include(c => c.Subcategorias)
-                .Include(c => c.Productos) //solo para contar
-                .FirstOrDefaultAsync(c => c.Id == id);
+            var c = await _db.Categorias
+                .Where(x => x.Id == id)
+                .Select(x => new
+                {
+                    x.Id,
+                    x.Nombre,
+                    x.Descripcion,
+                    x.Color,
+                    x.PopupInformacion,
+                    x.Mayoreo1,
+                    x.Mayoreo2,
+                    x.TipoPrecioMayoreo,
+                    x.CategoriaPadreId,
+                    CategoriaPadreNombre = x.CategoriaPadre != null
+                        ? x.CategoriaPadre.Nombre : null,
+                    TotalProductos = x.Productos.Count(p => !p.IsDeleted),
+                    Imagen = x.Imagen == null ? null : new
+                    {
+                        x.Imagen.Id,
+                        x.Imagen.Url,
+                        x.Imagen.Nombre
+                    },
+                    Subcategorias = x.Subcategorias
+                        .Where(s => !s.IsDeleted)
+                        .Select(s => new { s.Id, s.Nombre, s.Color })
+                        .ToList()
+                })
+                .FirstOrDefaultAsync();
 
-            return categoria is null ? null : MapToResponse(categoria);
+            if (c is null) return null;
+
+            return new CategoriaResponse(
+                Id: c.Id,
+                Nombre: c.Nombre,
+                Descripcion: c.Descripcion ?? string.Empty,
+                Color: c.Color,
+                PopupInformacion: c.PopupInformacion,
+                Mayoreo1: c.Mayoreo1,
+                Mayoreo2: c.Mayoreo2,
+                TipoPrecioMayoreo: c.TipoPrecioMayoreo,
+                CategoriaPadreId: c.CategoriaPadreId,
+                CategoriaPadreNombre: c.CategoriaPadreNombre,
+                TotalProductos: c.TotalProductos,
+                Imagen: c.Imagen is null ? null
+                                        : new ImagenResponse(
+                                            c.Imagen.Id,
+                                            c.Imagen.Url,
+                                            c.Imagen.Nombre),
+                Subcategorias: c.Subcategorias
+                    .Select(s => new CategoriaResumenResponse(s.Id, s.Nombre, s.Color))
+                    .ToList()
+            );
         }
 
-        public async Task<List<CategoriaResponse>> ObtenerCategoriasAsync()
+        //HELPER JERARQUÍA
+        private async Task<bool> EsDescendienteAsync(int ancestroId, int posibleDescendienteId)
         {
-            return await _db.Categorias
-                .Include(c => c.Imagen)
-                .Include(c => c.CategoriaPadre)
-                .Include(c => c.Subcategorias)
-                .Include(c => c.Productos) //solo para contar
-                .Select(c => MapToResponse(c))
-                .ToListAsync();
+            var idActual = (int?)posibleDescendienteId;
+
+            while (idActual.HasValue)
+            {
+                if (idActual.Value == ancestroId) return true;
+
+                idActual = await _db.Categorias
+                    .Where(c => c.Id == idActual.Value)
+                    .Select(c => c.CategoriaPadreId)
+                    .FirstOrDefaultAsync();
+            }
+
+            return false;
         }
 
-        private static CategoriaResponse MapToResponse(Categoria c) => new(
-            Id: c.Id,
-            Nombre: c.Nombre,
-            Descripcion: c.Descripcion ?? string.Empty,
-            Color: c.Color,
-            PopupInformacion: c.PopupInformacion,
+        //HELPER VALIDA NOMBRE
+        private async Task ValidarNombreUnicoAsync(
+            string nombre, int? padreId, int? excluirId)
+        {
+            bool duplicado = await _db.Categorias.AnyAsync(c =>
+                c.Nombre == nombre &&
+                c.CategoriaPadreId == padreId &&
+                (excluirId == null || c.Id != excluirId.Value));
 
-            Mayoreo1: c.Mayoreo1,
-            Mayoreo2: c.Mayoreo2,
-            TipoPrecioMayoreo: c.TipoPrecioMayoreo,
+            if (duplicado)
+                throw new InvalidOperationException(
+                    $"Ya existe una categoría '{nombre}' en ese nivel.");
+        }
 
-            CategoriaPadreId: c.CategoriaPadreId,
-            CategoriaPadreNombre: c.CategoriaPadre?.Nombre,
+        //HELPER VALIDA EXISTENCIA PADRE
+        private async Task ValidarPadreExisteAsync(int? padreId)
+        {
+            if (!padreId.HasValue) return;
 
-            TotalProductos: c.Productos?.Count ?? 0,
+            bool existe = await _db.Categorias
+                .AnyAsync(c => c.Id == padreId.Value);
 
-            Imagen: c.Imagen is null ? null : new ImagenResponse(c.Imagen.Id, c.Imagen.Url, c.Imagen.Nombre),
-            Subcategorias: c.Subcategorias?
-                .Where(s => !s.IsDeleted)
-                .Select(s => new CategoriaResumenResponse(s.Id, s.Nombre, s.Color))
-                .ToList() ?? new()
-        );
+            if (!existe)
+                throw new InvalidOperationException(
+                    $"No existe la categoría padre con Id {padreId}.");
+        }
     }
 }

@@ -1,6 +1,8 @@
 ﻿using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
 using Microsoft.Extensions.Options;
+using ModuPOS.Api.Data;
+using ModuPOS.Api.Entities;
 using ModuPOS.Api.Settings;
 
 namespace ModuPOS.Api.Services
@@ -48,6 +50,36 @@ namespace ModuPOS.Api.Services
             var deletionParams = new DeletionParams(publicId);
             var resultado = await _cloudinary.DestroyAsync(deletionParams);
             return resultado.Result == "ok";
+        }
+
+        public async Task<Imagen?> SubirYPersistirAsync(IFormFile? archivo, ModuPosDbContext db)
+        {
+            if (archivo is not { Length: > 0 }) return null;
+
+            await using var stream = archivo.OpenReadStream();
+            var subida = await SubirAsync(stream, archivo.FileName);
+
+            var imagen = new Imagen
+            {
+                Url = subida.Url,
+                Nombre = archivo.FileName,
+                ProveedorId = subida.PublicId,
+                Proveedor = "Cloudinary"
+            };
+
+            db.Imagenes.Add(imagen);
+
+            try
+            {
+                await db.SaveChangesAsync();
+            }
+            catch
+            {
+                await EliminarAsync(subida.PublicId);
+                throw;
+            }
+
+            return imagen;
         }
     }
 }

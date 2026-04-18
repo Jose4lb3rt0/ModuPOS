@@ -48,10 +48,11 @@ namespace ModuPOS.Api.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(List<ProductoResponse>), StatusCodes.Status200OK)]
-        public async Task<ActionResult<ProductoResponse>> ObtenerProductos()
+        public async Task<ActionResult<ProductoResponse>> ObtenerProductos(
+            [FromQuery] int pageIndex = 0,
+            [FromQuery] int pageSize = 20)
         {
-            var productos = await _productosService.ObtenerProductosAsync();
-            return Ok(productos);
+            return Ok(await _productosService.ObtenerProductosAsync(pageIndex, pageSize));
         }
 
         [HttpGet("{id:int}")]
@@ -75,12 +76,19 @@ namespace ModuPOS.Api.Controllers
         [ProducesResponseType(typeof(List<ProductoResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorDetails), StatusCodes.Status400BadRequest)]
         public async Task<ActionResult<List<ProductoResponse>>> BuscarProductos(
-            [FromQuery] string termino)
-        { 
-            if (string.IsNullOrWhiteSpace(termino)) return BadRequest("El término de búsqueda no puede estar vacío.");
-
-            var resultados = await _productosService.BuscarProductosAsync(termino);
-            return Ok(resultados);
+            [FromQuery] string? termino,
+            [FromQuery] int? categoriaId,
+            [FromQuery] int pageIndex = 0,
+            [FromQuery] int pageSize = 20)
+        {
+            var request = new BuscarProductosRequest
+            {
+                Termino = termino,
+                CategoriaId = categoriaId,
+                PageIndex = pageIndex,
+                PageSize = pageSize
+            };
+            return Ok(await _productosService.BuscarProductosAsync(request));
         }
 
         [HttpPatch("ajustar-stock")]

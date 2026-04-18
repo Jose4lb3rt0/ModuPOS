@@ -45,8 +45,12 @@ namespace ModuPOS.Api.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(List<CategoriaResponse>), StatusCodes.Status200OK)]
-        public async Task<ActionResult<List<CategoriaResponse>>> ObtenerTodas()
-            => Ok(await _service.ObtenerCategoriasAsync());
+        public async Task<ActionResult<List<CategoriaResponse>>> ObtenerTodas(
+            [FromQuery] int pageIndex = 0,
+            [FromQuery] int pageSize = 20)
+        { 
+            return Ok(await _service.ObtenerCategoriasAsync(pageIndex, pageSize));
+        }
 
         [HttpGet("{id:int}")]
         [ProducesResponseType(typeof(CategoriaResponse), StatusCodes.Status200OK)]

@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using ModuPOS.Api.Data;
 using ModuPOS.Api.Entities;
+using ModuPOS.Shared.DTOs;
 using ModuPOS.Shared.DTOs.Categoria;
 using ModuPOS.Shared.DTOs.Imagen;
 using ModuPOS.Shared.DTOs.Producto;
@@ -17,77 +18,81 @@ namespace ModuPOS.Api.Services
             _db = db;
         }
 
-        //CREAR PRODUCTO
+        //1. CREAR
         public async Task<ProductoResponse> CrearProductoAsync(
             CrearProductoRequest request,
             IFormFile? archivoImagen,
             IImagenService imagenService)
         {
-            if (await _db.Productos.AnyAsync(p => p.SKU == request.SKU))
-                throw new InvalidOperationException($"Ya existe un producto con el SKU '{request.SKU}'.");
+            //sku
+            var sku = request.SKU.Trim().ToUpperInvariant();
+            if (await _db.Productos.AnyAsync(p => p.SKU == sku))
+                throw new InvalidOperationException($"Ya existe un producto con el SKU '{sku}'.");
 
-            Imagen? imagen = null;
-            if (archivoImagen is { Length: > 0 })
-            {
-                //si hay imagen, primer la subimos a cloudinary
-                await using var stream = archivoImagen.OpenReadStream();
-                var subida = await imagenService.SubirAsync(stream, archivoImagen.FileName);
+            //categoria
+            var categoriaId = request.CategoriaId <= 0 ? null : request.CategoriaId;
 
-                //guardar db
-                imagen = new Imagen
-                {
-                    Url = subida.Url,
-                    Nombre = archivoImagen.FileName,
-                    ProveedorId = subida.PublicId,
-                    Proveedor = "Cloudinary"
-                };
-
-                _db.Imagenes.Add(imagen);
-                await _db.SaveChangesAsync();
-            }
+            //imagen
+            Imagen? imagen = await imagenService.SubirYPersistirAsync(archivoImagen, _db);
 
             var producto = new Producto
             {
-                SKU = request.SKU.Trim().ToUpperInvariant(),
+                SKU = sku,
                 Nombre = request.Nombre.Trim(),
                 PrecioActual = request.PrecioActual,
                 Stock = request.Stock,
-                CategoriaId = request.CategoriaId,
+                CategoriaId = categoriaId,
                 ImagenId = imagen?.Id
             };
 
             _db.Productos.Add(producto);
-            await _db.SaveChangesAsync();
+
+            try
+            {
+                await _db.SaveChangesAsync();
+            }
+            catch
+            {
+                if (imagen is not null)
+                    await imagenService.EliminarAsync(imagen.ProveedorId);
+                throw;
+            }
 
             return await ObtenerProductoPorIdAsync(producto.Id)
                ?? throw new InvalidOperationException("Error al recuperar el producto creado.");
         }
 
-        //ACTUALIZAR PRODUCTO
+        //2. ACTUALIZAR
         public async Task<ProductoResponse?> ActualizarProductoAsync(
             ActualizarProductoRequest request,
             IFormFile? archivoImagen,
             IImagenService imagenService)
         {
+            //find
             var producto = await _db.Productos
                 .Include(p => p.Imagen)
                 .FirstOrDefaultAsync(p => p.Id == request.Id);
 
             if (producto is null) return null;
 
-            if (request.SKU is not null && request.SKU != producto.SKU)
+            //sku
+            if (request.SKU is not null)
             {
-                bool skuEnUso = await _db.Productos.AnyAsync(p => p.SKU == request.SKU && p.Id != request.Id);
-                if (skuEnUso) throw new InvalidOperationException($"Ya existe un producto con el SKU '{request.SKU}'.");
+                var sku = request.SKU?.Trim().ToUpperInvariant();
+                if (sku != producto.SKU) 
+                { 
+                    bool skuEnUso = await _db.Productos.AnyAsync(p => p.SKU == sku && p.Id != request.Id);
+                    if (skuEnUso) throw new InvalidOperationException($"Ya existe un producto con el SKU '{sku}'.");
+                    producto.SKU = sku!;
+                }
             }
 
-            producto.SKU = request.SKU?.Trim().ToUpperInvariant() ?? producto.SKU;
             producto.Nombre = request.Nombre?.Trim() ?? producto.Nombre;
             producto.PrecioActual = request.PrecioActual ?? producto.PrecioActual;
             producto.Stock = request.Stock ?? producto.Stock;
-            producto.CategoriaId = request.CategoriaId ?? producto.CategoriaId;
+            producto.CategoriaId = request.CategoriaId <0 ? null : request.CategoriaId ?? producto.CategoriaId;
 
-            //quitar imagen o reemplazar imagen
+            //imagen: quitar imagen o reemplazar imagen
             if (request.QuitarImagen || (archivoImagen is { Length: > 0}))
             {
                 if (producto.Imagen != null)
@@ -99,39 +104,48 @@ namespace ModuPOS.Api.Services
                 //la subida esta en el bloque siguiente
             }
 
-            //se esta subiendo una nueva imagen
             if (archivoImagen is { Length: > 0 })
             {
-                await using var stream = archivoImagen.OpenReadStream();
-                var subida = await imagenService.SubirAsync(stream, archivoImagen.FileName);
-
-                var nuevaImagen = new Imagen
-                {
-                    Url = subida.Url,
-                    Nombre = archivoImagen.FileName,
-                    ProveedorId = subida.PublicId,
-                    Proveedor = "Cloudinary"
-                };
-
-                _db.Imagenes.Add(nuevaImagen);
-                await _db.SaveChangesAsync();
-
-                producto.ImagenId = nuevaImagen.Id; //asignación de la imagen recien subida
+                var nuevaImagen = await imagenService.SubirYPersistirAsync(archivoImagen, _db);
+                if (nuevaImagen is not null) producto.ImagenId = nuevaImagen.Id; //asignación de la imagen recien subida
             }
 
             await _db.SaveChangesAsync();
             return await ObtenerProductoPorIdAsync(producto.Id);
         }
 
-        public async Task<List<ProductoResponse>> ObtenerProductosAsync()
+        //3. OBTENER TODOS CON PAGINACION
+        public async Task<PagedResponse<ProductoResponse>> ObtenerProductosAsync(int pageIndex, int pageSize)
         {
-            return await _db.Productos
+            pageSize = Math.Clamp(pageSize, 1, 100);
+            pageIndex = Math.Max(pageIndex, 0);
+
+            var total = await _db.Productos.CountAsync();
+
+            var items = await _db.Productos
                 .Include(p => p.Categoria)
                 .Include(p => p.Imagen)
+                .OrderBy(p => p.Nombre) //orden determinista
+                .Skip(pageIndex * pageSize)
+                .Take(pageSize)
                 .Select(p => MapToResponse(p))
                 .ToListAsync();
+
+            return PagedResponse<ProductoResponse>.Montar(items, total, pageIndex, pageSize);
         }
 
+        //4. OBTENER POR ID
+        public async Task<ProductoResponse?> ObtenerProductoPorIdAsync(int id)
+        {
+            var producto = await _db.Productos
+                .Include(p => p.Categoria)
+                .Include(p => p.Imagen)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            return producto is null ? null : MapToResponse(producto);
+        }
+
+        //5. ELIMINAR
         public async Task<bool> EliminarProductoAsync(int id)
         {
             var producto = await _db.Productos.FindAsync(id);
@@ -144,31 +158,67 @@ namespace ModuPOS.Api.Services
             return true;
         }
 
-        public async Task<List<ProductoResponse>> BuscarProductosAsync(string termino)
-        {
-            if (string.IsNullOrWhiteSpace(termino)) return new List<ProductoResponse>();
-
-            var patron = $"%{termino.Trim()}%";
-
-            return await _db.Productos
-                .Include(p => p.Categoria)
-                .Include(p => p.Imagen)
-                .Where(p => EF.Functions.Like(p.Nombre, patron)
-                            || EF.Functions.Like(p.SKU, patron))
-                .Select(p => MapToResponse(p))
-                .ToListAsync();
-        }
-
-        public async Task<ProductoResponse?> ObtenerProductoPorIdAsync(int id)
+        //6. STOCK
+        public async Task<ProductoResponse> AjustarStockAsync(AjusteStockRequest request)
         {
             var producto = await _db.Productos
                 .Include(p => p.Categoria)
                 .Include(p => p.Imagen)
-                .FirstOrDefaultAsync(p => p.Id == id);
+                .FirstOrDefaultAsync(p => p.Id == request.ProductoId);
 
-            return producto is null ? null : MapToResponse(producto);
+            if (producto == null) throw new InvalidOperationException($"No se encontró el producto con ID {request.ProductoId}");
+
+            producto.Stock += request.Cantidad;
+
+            //no stock negativo
+            if (producto.Stock < 0)
+                throw new InvalidOperationException(
+                    $"El ajuste resultaría en stock negativo para '{producto.Nombre}'. " +
+                    $"Stock actual: {producto.Stock - request.Cantidad}, ajuste: {request.Cantidad}.");
+
+            await _db.SaveChangesAsync();
+            return MapToResponse(producto);
         }
 
+        //7. BUSCAR CON FILTROS Y PAGINACION
+        public async Task<PagedResponse<ProductoResponse>> BuscarProductosAsync(BuscarProductosRequest request)
+        {
+            request.PageSize = Math.Clamp(request.PageSize, 1, 100);
+            request.PageIndex = Math.Max(request.PageIndex, 0);
+
+            var categoriaId = request.CategoriaId <= 0 ? null : request.CategoriaId;
+
+            var query = _db.Productos
+                .Include(p => p.Categoria)
+                .Include(p => p.Imagen)
+                .AsQueryable(); //no estoy ejecutando asincronamente
+
+            if (!string.IsNullOrWhiteSpace(request.Termino))
+            { 
+                var patron = $"%{request.Termino.Trim()}%";
+
+                query = query.Where(p =>
+                    EF.Functions.Like(p.Nombre, patron) ||
+                    EF.Functions.Like(p.SKU, patron));
+            }
+
+            //filtro por categoria
+            if (categoriaId.HasValue)
+                query = query.Where(p => p.CategoriaId == categoriaId.Value); //anidacion de query
+
+            var total = await query.CountAsync();
+
+            var items = await query
+                .OrderBy(p => p.Nombre)
+                .Skip(request.PageIndex * request.PageSize)
+                .Take(request.PageSize)
+                .Select(p => MapToResponse(p))
+                .ToListAsync();
+
+            return PagedResponse<ProductoResponse>.Montar(items, total, request.PageIndex, request.PageSize);
+        }
+
+        //MAPPER ENTIDAD A DTO
         private static ProductoResponse MapToResponse(Producto p) => new(
             Id: p.Id,
             SKU: p.SKU,
@@ -184,20 +234,5 @@ namespace ModuPOS.Api.Services
             Imagen: p.Imagen is null ? null
                             : new ImagenResponse(p.Imagen.Id, p.Imagen.Url, p.Imagen.Nombre)
         );
-
-        public async Task<ProductoResponse> AjustarStockAsync(AjusteStockRequest request)
-        {
-            var producto = await _db.Productos.FindAsync(request.ProductoId);
-
-            if (producto == null) throw new InvalidOperationException($"No se encontró el producto con ID {request.ProductoId}");
-
-            producto.Stock += request.Cantidad;
-
-            //no stock negativo
-            if (producto.Stock < 0) throw new InvalidOperationException($"El ajuste resultaría en un stock negativo para '{producto.Nombre}'.");
-
-            await _db.SaveChangesAsync();
-            return MapToResponse(producto);
-        }
     }
 }
