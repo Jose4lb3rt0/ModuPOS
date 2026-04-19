@@ -1,13 +1,24 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using ModuPOS.Api.Entities;
+using ModuPOS.Api.Entities.Identity;
+using ModuPOS.Api.Services.Auth;
 using ModuPOS.Shared.Enums;
 
 namespace ModuPOS.Api.Data
 {
-    public class ModuPosDbContext : DbContext
+    public class ModuPosDbContext : IdentityDbContext<UsuarioAplicacion>
     {
-        public ModuPosDbContext(DbContextOptions<ModuPosDbContext> options) : base(options) { }
+        private readonly IAuditService _auditService;
+
+        public ModuPosDbContext(
+            DbContextOptions<ModuPosDbContext> options, 
+            IAuditService auditService) 
+            : base(options)
+        {
+            _auditService = auditService;
+        }
 
         public DbSet<Producto> Productos => Set<Producto>();
         public DbSet<MetodoPago> MetodosPago => Set<MetodoPago>();
@@ -19,16 +30,29 @@ namespace ModuPOS.Api.Data
         //soft delete
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            var deletedEntries = ChangeTracker
-                .Entries<BaseEntity>()
-                .Where(e => e.State == EntityState.Deleted);
+            var ahora = DateTime.UtcNow;
+            var usuario = _auditService.ObtenerUsuarioActual();
 
-            foreach (EntityEntry<BaseEntity> entry in deletedEntries)
+            foreach (var entry in ChangeTracker.Entries<BaseEntity>())
             {
-                entry.State = EntityState.Modified;
+                switch (entry.State) 
+                {
+                    case EntityState.Added:
+                        entry.Entity.CreatedAt = ahora;
+                        entry.Entity.CreatedBy = usuario;
+                        break;
 
-                entry.Entity.IsDeleted = true;
-                entry.Entity.DeletedAt = DateTime.UtcNow;
+                    case EntityState.Modified:
+                        entry.Entity.UpdatedAt = ahora;
+                        entry.Entity.UpdatedBy = usuario;
+                        break;
+
+                    case EntityState.Deleted:
+                        entry.State = EntityState.Modified; //no quiero delete explicito sino soft delete
+                        entry.Entity.DeletedAt = ahora;
+                        entry.Entity.UpdatedBy = usuario;
+                        break;
+                }
             }
 
             return await base.SaveChangesAsync(cancellationToken);
@@ -37,6 +61,8 @@ namespace ModuPOS.Api.Data
         //configuracion de modelos y relaciones
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            base.OnModelCreating(modelBuilder);
+
             modelBuilder.Entity<Producto>().HasQueryFilter(e => !e.IsDeleted);
             modelBuilder.Entity<MetodoPago>().HasQueryFilter(e => !e.IsDeleted);
             modelBuilder.Entity<Venta>().HasQueryFilter(e => !e.IsDeleted);
