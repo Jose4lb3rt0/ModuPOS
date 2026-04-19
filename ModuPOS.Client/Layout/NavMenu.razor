@@ -1,10 +1,17 @@
-﻿<div class="nav-item">
-    <NavLink class="nav-link" href="productos">
-        <span class="bi bi-box-seam-fill" aria-hidden="true"></span> Productos
-    </NavLink>
-</div>
-<div class="nav-item">
-    <NavLink class="nav-link" href="categorias">
-        <span class="bi bi-tags-fill" aria-hidden="true"></span> Categorías
-    </NavLink>
-</div>
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@using ModuPOS.Shared.Constants
+
+<AuthorizeView Roles="Administrador"> @* puedo usar Roles y Policies *@
+    <Authorized>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="productos">
+                <span class="bi bi-box-seam-fill" aria-hidden="true"></span> Productos
+            </NavLink>
+        </div>
+        <div class="nav-item">
+            <NavLink class="nav-link" href="categorias">
+                <span class="bi bi-tags-fill" aria-hidden="true"></span> Categorías
+            </NavLink>
+        </div>
+    </Authorized>
+</AuthorizeView>

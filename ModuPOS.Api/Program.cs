@@ -121,7 +121,7 @@ if (!userManager.Users.Any())
         Nombres = "Administrador",
         EstaActivo = true
     };
-    await userManager.CreateAsync(admin, "Admin1234!");
+    await userManager.CreateAsync(admin, "admin");
     await userManager.AddToRoleAsync(admin, Roles.Administrador);
 }
 

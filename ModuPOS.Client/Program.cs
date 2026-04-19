@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using ModuPOS.Client;
 using ModuPOS.Client.Auth;
+using ModuPOS.Client.Services.Auth;
 using ModuPOS.Client.Services.Categoria;
 using ModuPOS.Client.Services.Producto;
 using System.Net.Http;
@@ -21,6 +22,8 @@ var baseAddress = apiUrl.EndsWith("/") ? apiUrl : apiUrl + "/";
 // --- SERVICIOS DE NEGOCIO (CLIENTES API) ---
 builder.Services.AddScoped<IProductoClientService, ProductoClientService>();
 builder.Services.AddScoped<ICategoriaClientService, CategoriaClientService>();
+builder.Services.AddScoped<IAuthClientService>(sp =>
+    new AuthClientService(new HttpClient { BaseAddress = new Uri(baseAddress) }));
 
 // --- INFRAESTRUCTURA DE SEGURIDAD (AUTH) ---
 builder.Services.AddAuthorizationCore();

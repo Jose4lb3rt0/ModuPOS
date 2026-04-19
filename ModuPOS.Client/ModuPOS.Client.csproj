@@ -21,8 +21,4 @@
     <ProjectReference Include="..\ModuPOS.Shared\ModuPOS.Shared.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Auth\" />
-  </ItemGroup>
-
 </Project>

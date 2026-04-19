@@ -6,9 +6,9 @@
 @using ModuPOS.Client.Services
 
 @page "/categorias"
+@attribute [Authorize]
 @inject ICategoriaClientService CategoriaService
 @inject IJSRuntime JS
-
 <PageTitle>Categorías</PageTitle>
 
 <div class="container-fluid py-4">

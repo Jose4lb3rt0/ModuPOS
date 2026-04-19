@@ -4,6 +4,7 @@
 @using ModuPOS.Shared.DTOs.Categoria
 
 @page "/productos"
+@attribute [Authorize]
 @inject IProductoClientService ProductoService
 @inject ICategoriaClientService CategoriaService
 @inject IJSRuntime JS
