@@ -1,8 +1,10 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ModuPOS.Api.Data;
 using ModuPOS.Api.Entities;
 using ModuPOS.Api.Services;
+using ModuPOS.Shared.Constants;
 using ModuPOS.Shared.DTOs;
 using ModuPOS.Shared.DTOs.Producto;
 
@@ -21,6 +23,7 @@ namespace ModuPOS.Api.Controllers
 
         [HttpPost]
         [Consumes("multipart/form-data")]
+        [Authorize(Policy = Policies.GestionarInventario)]
         [ProducesResponseType(typeof(ProductoResponse), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
         public async Task<ActionResult<ProductoResponse>> CrearProducto(
@@ -34,6 +37,7 @@ namespace ModuPOS.Api.Controllers
 
         [HttpPatch]
         [Consumes("multipart/form-data")]
+        [Authorize(Policy = Policies.GestionarInventario)]
         [ProducesResponseType(typeof(ProductoResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -47,6 +51,7 @@ namespace ModuPOS.Api.Controllers
         }
 
         [HttpGet]
+        [Authorize(Policy = Policies.RealizarVenta)]
         [ProducesResponseType(typeof(List<ProductoResponse>), StatusCodes.Status200OK)]
         public async Task<ActionResult<ProductoResponse>> ObtenerProductos(
             [FromQuery] int pageIndex = 0,
@@ -63,6 +68,7 @@ namespace ModuPOS.Api.Controllers
         }
 
         [HttpDelete("{id:int}")]
+        [Authorize(Policy = Policies.GestionarInventario)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> EliminarProductoAsync(int id)

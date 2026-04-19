@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using ModuPOS.Api.Services;
+using ModuPOS.Shared.Constants;
 using ModuPOS.Shared.DTOs.Categoria;
 
 namespace ModuPOS.Api.Controllers
@@ -18,6 +20,7 @@ namespace ModuPOS.Api.Controllers
 
         [HttpPost]
         [Consumes("multipart/form-data")]
+        [Authorize(Policy = Policies.GestionarInventario)]
         [ProducesResponseType(typeof(CategoriaResponse), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
         public async Task<ActionResult<CategoriaResponse>> Crear(
@@ -44,6 +47,7 @@ namespace ModuPOS.Api.Controllers
         }
 
         [HttpGet]
+        [Authorize(Policy = Policies.RealizarVenta)]
         [ProducesResponseType(typeof(List<CategoriaResponse>), StatusCodes.Status200OK)]
         public async Task<ActionResult<List<CategoriaResponse>>> ObtenerTodas(
             [FromQuery] int pageIndex = 0,

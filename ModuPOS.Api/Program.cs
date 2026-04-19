@@ -1,8 +1,15 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using ModuPOS.Api.Data;
+using ModuPOS.Api.Entities.Identity;
 using ModuPOS.Api.Middleware;
 using ModuPOS.Api.Services;
+using ModuPOS.Api.Services.Auth;
 using ModuPOS.Api.Settings;
+using ModuPOS.Shared.Constants;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,7 +19,65 @@ builder.Services.AddDbContext<ModuPosDbContext>(options =>
 
 builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection(CloudinarySettings.Section));
 
+builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection(JwtSettings.Section));
+
+builder.Services.AddIdentity<UsuarioAplicacion, IdentityRole>(options =>
+{
+    //requisitos de contraseña
+    options.Password.RequiredLength = 8;
+    options.Password.RequireDigit = true;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireNonAlphanumeric = false;
+
+    //bloqueo por intentos fallidos
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+
+    options.User.RequireUniqueEmail = true;
+})
+.AddEntityFrameworkStores<ModuPosDbContext>()
+.AddDefaultTokenProviders();
+
+//jwt autenticacion
+var jwtSettings = builder.Configuration.GetSection(JwtSettings.Section).Get<JwtSettings>()!;
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true, //expiración
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtSettings.Issuer,
+        ValidAudience = jwtSettings.Audience,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey)),
+        ClockSkew = TimeSpan.Zero //margen de tolerancia para diferencias de reloj entre servidores, default era 5 minutos
+    };
+});
+
+//politicas autorización a roles
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(Policies.SoloAdmin, policy =>
+        policy.RequireRole(Roles.Administrador));
+
+    options.AddPolicy(Policies.GestionarInventario, policy =>
+        policy.RequireRole(Roles.Administrador));
+
+    options.AddPolicy(Policies.RealizarVenta, policy =>
+        policy.RequireRole(Roles.Administrador, Roles.Cajero));
+});
+
 // Add business logic services
+builder.Services.AddHttpContextAccessor(); //necesario para AuditService
+builder.Services.AddScoped<IAuditService, AuditServiceImpl>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IVentasService, VentasServiceImpl>();
 builder.Services.AddScoped<IProductosService, ProductosServiceImpl>();
 builder.Services.AddScoped<IMetodosPagoService, MetodosPagoServiceImpl>();
@@ -38,11 +103,9 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+app.UseGlobalExceptionHandler(); //envuelve todo lo que venga después en el pipeline para manejar excepciones globalmente
 app.UseCors("BlazorPolicy");
 
-app.UseGlobalExceptionHandler(); //envuelve todo lo que venga después en el pipeline para manejar excepciones globalmente
-
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -50,9 +113,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
+app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();
