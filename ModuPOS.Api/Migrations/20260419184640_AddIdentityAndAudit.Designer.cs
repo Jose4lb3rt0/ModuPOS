@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ModuPOS.Api.Data;
 
@@ -11,9 +12,11 @@ using ModuPOS.Api.Data;
 namespace ModuPOS.Api.Migrations
 {
     [DbContext(typeof(ModuPosDbContext))]
-    partial class ModuPosDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260419184640_AddIdentityAndAudit")]
+    partial class AddIdentityAndAudit
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

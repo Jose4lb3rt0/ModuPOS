@@ -103,6 +103,28 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+//seeder de administrador
+using var scope = app.Services.CreateScope();
+var userManager = scope.ServiceProvider.GetRequiredService<UserManager<UsuarioAplicacion>>();
+var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+
+foreach (var rol in new[] { Roles.Administrador, Roles.Cajero })
+    if (!await roleManager.RoleExistsAsync(rol))
+        await roleManager.CreateAsync(new IdentityRole(rol));
+
+if (!userManager.Users.Any())
+{
+    var admin = new UsuarioAplicacion
+    {
+        UserName = "admin@modupos.com",
+        Email = "admin@modupos.com",
+        Nombres = "Administrador",
+        EstaActivo = true
+    };
+    await userManager.CreateAsync(admin, "Admin1234!");
+    await userManager.AddToRoleAsync(admin, Roles.Administrador);
+}
+
 app.UseGlobalExceptionHandler(); //envuelve todo lo que venga después en el pipeline para manejar excepciones globalmente
 app.UseCors("BlazorPolicy");
 
