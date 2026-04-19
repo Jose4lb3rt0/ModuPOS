@@ -12,10 +12,8 @@ namespace ModuPOS.Client.Services.Producto
         private readonly HttpClient _httpClient;
         private const long MaxImageSize = 5 * 1024 * 1024; //5 mb
 
-        public ProductoClientService(HttpClient httpClient)
-        {
-            _httpClient = httpClient;
-        }
+        public ProductoClientService(IHttpClientFactory factory)
+            => _httpClient = factory.CreateClient("ApiClient");
 
         //POST crear
         public async Task<ProductoResponse?> CrearAsync(CrearProductoRequest request, IBrowserFile? imagen)

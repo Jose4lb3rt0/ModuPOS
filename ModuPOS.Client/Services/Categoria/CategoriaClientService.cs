@@ -11,10 +11,8 @@ namespace ModuPOS.Client.Services.Categoria
         private readonly HttpClient _http;
         private const long MaxImageSize = 5 * 1024 * 1024;
 
-        public CategoriaClientService(HttpClient http)
-        {
-            _http = http;
-        }
+        public CategoriaClientService(IHttpClientFactory factory)
+            => _http = factory.CreateClient("ApiClient");
 
         public async Task<List<CategoriaResponse>> ObtenerTodasAsync() {
             return await _http.GetFromJsonAsync<List<CategoriaResponse>>("api/categorias") ?? new();
