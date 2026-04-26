@@ -104,25 +104,22 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 //seeder de administrador
-using var scope = app.Services.CreateScope();
-var userManager = scope.ServiceProvider.GetRequiredService<UserManager<UsuarioAplicacion>>();
-var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-
-foreach (var rol in new[] { Roles.Administrador, Roles.Cajero })
-    if (!await roleManager.RoleExistsAsync(rol))
-        await roleManager.CreateAsync(new IdentityRole(rol));
-
-if (!userManager.Users.Any())
+using (var scope = app.Services.CreateScope()) 
 {
-    var admin = new UsuarioAplicacion
+    var servicios = scope.ServiceProvider;
+    try
     {
-        UserName = "admin@modupos.com",
-        Email = "admin@modupos.com",
-        Nombres = "Administrador",
-        EstaActivo = true
-    };
-    await userManager.CreateAsync(admin, "admin");
-    await userManager.AddToRoleAsync(admin, Roles.Administrador);
+        var context = servicios.GetRequiredService<ModuPosDbContext>();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<UsuarioAplicacion>>();
+        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+
+        await DbInitializer.SeedAsync(context, userManager, roleManager);
+    }
+    catch (Exception ex) 
+    {
+        var logger = servicios.GetService<ILogger<Program>>();
+        logger.LogError(ex, "Error crítico durante la inicialización de la base de datos.");
+    }
 }
 
 app.UseGlobalExceptionHandler(); //envuelve todo lo que venga después en el pipeline para manejar excepciones globalmente

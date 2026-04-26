@@ -33,13 +33,15 @@ namespace ModuPOS.Api.Data
             var ahora = DateTime.UtcNow;
             var usuario = _auditService.ObtenerUsuarioActual();
 
+            string auditUser = string.IsNullOrEmpty(usuario) ? "System" : usuario;
+
             foreach (var entry in ChangeTracker.Entries<BaseEntity>())
             {
                 switch (entry.State) 
                 {
                     case EntityState.Added:
                         entry.Entity.CreatedAt = ahora;
-                        entry.Entity.CreatedBy = usuario;
+                        entry.Entity.CreatedBy = auditUser;
                         break;
 
                     case EntityState.Modified:
