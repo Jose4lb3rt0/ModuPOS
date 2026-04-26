@@ -129,6 +129,31 @@
                     }
                 </tbody>
             </table>
+
+            @if (totalPaginas > 1)
+            {
+                <nav>
+                    <ul class="pagination pagination-sm justify-content-end mt-2">
+                        <li class="page-item @(paginaActual == 0 ? "disabled" : "")">
+                            <button class="page-link" @onclick="() => IrPagina(paginaActual - 1)">
+                                ‹
+                            </button>
+                        </li>
+                        @for (int i = 0; i < totalPaginas; i++)
+                        {
+                            var p = i;
+                            <li class="page-item @(p == paginaActual ? "active" : "")">
+                                <button class="page-link" @onclick="() => IrPagina(p)">@(p + 1)</button>
+                            </li>
+                        }
+                        <li class="page-item @(paginaActual >= totalPaginas - 1 ? "disabled" : "")">
+                            <button class="page-link" @onclick="() => IrPagina(paginaActual + 1)">
+                                ›
+                            </button>
+                        </li>
+                    </ul>
+                </nav>
+            }
         </div>
         <p class="text-muted small">@productos.Count producto(s) encontrado(s).</p>
     }
@@ -267,11 +292,15 @@
     private string? previewUrl;
     private bool quitarImagenFlag;
 
+    //para mis requests
+    private int paginaActual = 0;
+    private int tamañoPagina = 20;
+    private int totalItems = 0;
+    private int totalPaginas = 0;
+
     //Ciclo de vida
     protected override async Task OnInitializedAsync()
     {
-        //await CargarProductos();
-
         //Carga paralela
         var tareas = new[]
         {
@@ -287,7 +316,12 @@
         cargando = true;
         mensajeError = null;
 
-        try { productos = await ProductoService.ObtenerTodosAsync(); }
+        try {
+            var resultado = await ProductoService.ObtenerTodosAsync(paginaActual, tamañoPagina);
+            productos = resultado.Items;
+            totalItems = resultado.TotalItems;
+            totalPaginas = resultado.TotalPages;
+        }
         catch (HttpRequestException ex) { mensajeError = $"Error al cargar productos: {ex.Message}"; } //La excepción viene del helper LeerRespuestaAsync
         finally { cargando = false; }
     }
@@ -300,7 +334,7 @@
         try
         {
             var todas = await CategoriaService.ObtenerTodasAsync();
-            categorias = todas.Select(c => new CategoriaResumenResponse(c.Id, c.Nombre, c.Color)).ToList();
+            categorias = todas.Items.Select(c => new CategoriaResumenResponse(c.Id, c.Nombre, c.Color)).ToList();
         }
         catch { }
     }
@@ -316,9 +350,21 @@
         cargando = true;
         mensajeError = null;
 
-        try { productos = await ProductoService.BuscarAsync(terminoBusqueda); }
+        try
+        {
+            var resultado = await ProductoService.BuscarAsync(terminoBusqueda, pageIndex: paginaActual, pageSize: tamañoPagina);
+            productos = resultado.Items;
+            totalItems = resultado.TotalItems;
+            totalPaginas = resultado.TotalPages;
+        }
         catch (HttpRequestException ex) { mensajeError = $"Error en la búsqueda: {ex.Message}"; }
         finally { cargando = false; }
+    }
+
+    private async Task IrPagina(int pagina)
+    {
+        paginaActual = pagina;
+        await CargarProductos();
     }
 
     private async Task LimpiarBusqueda()
@@ -442,7 +488,6 @@
     //Eliminar
     private async Task ConfirmarEliminar(ProductoResponse producto)
     {
-        //JS Interop llama a window.confirm() de JS
         var confirmo = await JS.InvokeAsync<bool>("confirm",
             $"¿Eliminar \"{producto.Nombre}\"? Esta acción no se puede deshacer desde aquí.");
 

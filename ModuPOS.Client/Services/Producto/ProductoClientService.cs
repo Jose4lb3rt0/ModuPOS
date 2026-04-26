@@ -12,8 +12,7 @@ namespace ModuPOS.Client.Services.Producto
         private readonly HttpClient _httpClient;
         private const long MaxImageSize = 5 * 1024 * 1024; //5 mb
 
-        public ProductoClientService(IHttpClientFactory factory)
-            => _httpClient = factory.CreateClient("ApiClient");
+        public ProductoClientService(IHttpClientFactory factory) => _httpClient = factory.CreateClient("ApiClient");
 
         //POST crear
         public async Task<ProductoResponse?> CrearAsync(CrearProductoRequest request, IBrowserFile? imagen)
@@ -32,36 +31,45 @@ namespace ModuPOS.Client.Services.Producto
         }
 
         //GET busqueda
-        public async Task<List<ProductoResponse>> BuscarAsync(string termino)
+        public async Task<PagedResponse<ProductoResponse>> BuscarAsync(
+            string? termino, int? categoriaId = null,
+            int pageIndex = 0, int pageSize = 20)
         {
-            if (string.IsNullOrWhiteSpace(termino)) return await ObtenerTodosAsync();
+            var queryParams = new List<string>
+            {
+                $"pageIndex={pageIndex}",
+                $"pageSize={pageSize}"
+            };
 
-            var url = $"api/productos/buscar?termino={Uri.EscapeDataString(termino)}";
+            if (!string.IsNullOrWhiteSpace(termino))
+                queryParams.Add($"termino={Uri.EscapeDataString(termino)}");
 
-            return await _httpClient.GetFromJsonAsync<List<ProductoResponse>>(url)
-                   ?? new List<ProductoResponse>();
+            if (categoriaId.HasValue && categoriaId > 0)
+                queryParams.Add($"categoriaId={categoriaId}");
+
+            var url = $"api/productos/buscar?{string.Join("&", queryParams)}";
+
+            return await _httpClient.GetFromJsonAsync<PagedResponse<ProductoResponse>>(url)
+                   ?? new PagedResponse<ProductoResponse>(
+                       new(), 0, pageIndex, pageSize, 0, false, false);
         }
 
         //DELETE 
         public async Task<bool> EliminarAsync(int id)
         {
             var response = await _httpClient.DeleteAsync($"api/productos/{id}");
-
             if (response.IsSuccessStatusCode) return true;
-
             if (response.StatusCode == HttpStatusCode.NotFound) return false;
-
-            //deserializar ErrorDetails para obtener
-            var error = await response.Content.ReadFromJsonAsync<ErrorDetails>();
-
+            var error = await response.Content.ReadFromJsonAsync<ErrorDetails>(); //deserializar ErrorDetails para obtener
             throw new HttpRequestException(error?.Message ?? "Error desconocido al eliminar el producto.");
         }
 
         //GET todos
-        public async Task<List<ProductoResponse>> ObtenerTodosAsync()
+        public async Task<PagedResponse<ProductoResponse>> ObtenerTodosAsync(int pageIndex = 0, int pageSize = 20)
         {
-            return await _httpClient.GetFromJsonAsync<List<ProductoResponse>>("api/productos") 
-                ?? new List<ProductoResponse>();
+            var url = $"api/productos?pageIndex={pageIndex}&pageSize={pageSize}";
+            return await _httpClient.GetFromJsonAsync<PagedResponse<ProductoResponse>>(url)
+                ?? new PagedResponse<ProductoResponse>(new(), 0, pageIndex, pageSize, 0, false, false);
         }
 
         //PATCH ajustar stock
@@ -74,7 +82,6 @@ namespace ModuPOS.Client.Services.Producto
         private static async Task<T?> LeerRespuestaAsync<T>(HttpResponseMessage response)
         {
             if (response.IsSuccessStatusCode) return await response.Content.ReadFromJsonAsync<T>();
-
             var error = await response.Content.ReadFromJsonAsync<ErrorDetails>();
             throw new HttpRequestException(error?.Message ?? $"Error HTTP {(int)response.StatusCode}");
         }

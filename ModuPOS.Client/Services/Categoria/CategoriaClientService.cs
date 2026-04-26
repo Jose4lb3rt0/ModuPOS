@@ -11,11 +11,14 @@ namespace ModuPOS.Client.Services.Categoria
         private readonly HttpClient _http;
         private const long MaxImageSize = 5 * 1024 * 1024;
 
-        public CategoriaClientService(IHttpClientFactory factory)
-            => _http = factory.CreateClient("ApiClient");
+        public CategoriaClientService(IHttpClientFactory factory) => _http = factory.CreateClient("ApiClient");
 
-        public async Task<List<CategoriaResponse>> ObtenerTodasAsync() {
-            return await _http.GetFromJsonAsync<List<CategoriaResponse>>("api/categorias") ?? new();
+        public async Task<PagedResponse<CategoriaResponse>> ObtenerTodasAsync(int pageIndex = 0, int pageSize = 20)
+        {
+            var url = $"api/categorias?pageIndex={pageIndex}&pageSize={pageSize}";
+            return await _http.GetFromJsonAsync<PagedResponse<CategoriaResponse>>(url)
+                   ?? new PagedResponse<CategoriaResponse>(
+                       new(), 0, pageIndex, pageSize, 0, false, false);
         }
 
         public async Task<CategoriaResponse?> ObtenerPorIdAsync(int id) =>
@@ -42,7 +45,6 @@ namespace ModuPOS.Client.Services.Categoria
             var response = await _http.DeleteAsync($"api/categorias/{id}");
             if (response.IsSuccessStatusCode) return true;
             if (response.StatusCode == HttpStatusCode.NotFound) return false;
-
             var error = await response.Content.ReadFromJsonAsync<ErrorDetails>();
             throw new HttpRequestException(error?.Message ?? "Error al eliminar.");
         }

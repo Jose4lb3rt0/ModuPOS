@@ -111,6 +111,31 @@
                     </div>
                 </div>
             }
+
+            @if (totalPaginas > 1)
+            {
+                <nav>
+                    <ul class="pagination pagination-sm justify-content-end mt-2">
+                        <li class="page-item @(paginaActual == 0 ? "disabled" : "")">
+                            <button class="page-link" @onclick="() => IrPagina(paginaActual - 1)">
+                                ‹
+                            </button>
+                        </li>
+                        @for (int i = 0; i < totalPaginas; i++)
+                        {
+                            var p = i;
+                            <li class="page-item @(p == paginaActual ? "active" : "")">
+                                <button class="page-link" @onclick="() => IrPagina(p)">@(p + 1)</button>
+                            </li>
+                        }
+                        <li class="page-item @(paginaActual >= totalPaginas - 1 ? "disabled" : "")">
+                            <button class="page-link" @onclick="() => IrPagina(paginaActual + 1)">
+                                ›
+                            </button>
+                        </li>
+                    </ul>
+                </nav>
+            }
         </div>
     }
 </div>
@@ -248,6 +273,7 @@
     </div>
 }
 
+
 @code {
     private List<CategoriaResponse> categorias = new();
     private string? mensajeError;
@@ -274,13 +300,24 @@
     private string? previewUrl;
     private bool quitarImagenFlag;
 
+    //para mis requests
+    private int paginaActual = 0;
+    private int tamañoPagina = 20;
+    private int totalItems = 0;
+    private int totalPaginas = 0;
+
     protected override async Task OnInitializedAsync() => await CargarCategorias();
 
     private async Task CargarCategorias()
     {
         cargando = true;
         mensajeError = null;
-        try { categorias = await CategoriaService.ObtenerTodasAsync(); }
+        try { 
+            var resultado = await CategoriaService.ObtenerTodasAsync(paginaActual, tamañoPagina);
+            categorias = resultado.Items;
+            totalItems = resultado.TotalItems;
+            totalPaginas = resultado.TotalPages;
+        }
         catch (HttpRequestException ex) { mensajeError = ex.Message; }
         finally { cargando = false; }
     }
@@ -414,5 +451,11 @@
             else await CargarCategorias();
         }
         catch (HttpRequestException ex) { mensajeError = ex.Message; }
+    }
+
+    private async Task IrPagina(int pagina)
+    {
+        paginaActual = pagina;
+        await CargarCategorias();
     }
 }
