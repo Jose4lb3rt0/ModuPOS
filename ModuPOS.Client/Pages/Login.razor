@@ -1,47 +1,84 @@
 ﻿@using ModuPOS.Shared.DTOs.Auth
 @using ModuPOS.Client.Auth
 @using ModuPOS.Client.Services.Auth
+@using Microsoft.AspNetCore.Components.Authorization
 
 @page "/login"
 @inject IAuthClientService AuthService
 @inject JwtAuthStateProvider AuthProvider
 @inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
 
-<div class="container" style="max-width:420px;margin-top:10vh">
-    <div class="card shadow-sm">
-        <div class="card-body p-4">
-            <h4 class="card-title mb-4">ModuPOS — Iniciar sesión</h4>
-
-            @if (error is not null)
-            {
-                <div class="alert alert-danger">@error</div>
-            }
-
-            <div class="mb-3">
-                <label class="form-label">Correo electrónico</label>
-                <input type="email" class="form-control"
-                       @bind="email" @bind:event="oninput" />
+<AuthorizeView>
+    <Authorized>
+        @{ Nav.NavigateTo("/", replace: true); }
+    </Authorized>
+    <NotAuthorized>
+        @if (verificando)
+        {
+            <div class="d-flex justify-content-center" style="margin-top: 20vh;">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Verificando sesión...</span>
+                </div>
             </div>
-            <div class="mb-3">
-                <label class="form-label">Contraseña</label>
-                <input type="password" class="form-control"
-                       @bind="password"
-                       @onkeyup="TeclaEnter" />
+        }
+        else
+        {
+            <div class="container" style="max-width:420px;margin-top:10vh">
+                <div class="card shadow-sm">
+                    <div class="card-body p-4">
+                        <h4 class="card-title mb-4">ModuPOS — Iniciar sesión</h4>
+
+                        @if (error is not null)
+                        {
+                            <div class="alert alert-danger">@error</div>
+                        }
+
+                        <div class="mb-3">
+                            <label class="form-label">Correo electrónico</label>
+                            <input type="email" class="form-control" @bind="email" @bind:event="oninput" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Contraseña</label>
+                            <input type="password" class="form-control" @bind="password" @onkeyup="TeclaEnter" />
+                        </div>
+                        <button class="btn btn-primary w-100" @onclick="IniciarSesion" disabled="@cargando">
+                            @(cargando ? "Iniciando sesión..." : "Entrar")
+                        </button>
+                    </div>
+                </div>
             </div>
-            <button class="btn btn-primary w-100"
-                    @onclick="IniciarSesion"
-                    disabled="@cargando">
-                @(cargando ? "Iniciando sesión..." : "Entrar")
-            </button>
-        </div>
-    </div>
-</div>
+        }
+    </NotAuthorized>
+</AuthorizeView>
 
 @code {
     private string email = string.Empty;
     private string password = string.Empty;
     private string? error;
     private bool cargando;
+    private bool verificando = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await AuthProvider.InicializarAsync(); //forzar lectura
+            
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync(); //estado actual
+            var user = authState.User;
+
+            if (user.Identity is not null && user.Identity.IsAuthenticated)
+            {
+                Nav.NavigateTo("/", replace: true);
+            }
+            else
+            {
+                verificando = false;
+                StateHasChanged();
+            }
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -77,7 +114,7 @@
 
             await AuthProvider.IniciarSesionAsync(response.Token); //guarda el token y notifica a blazor
 
-            Nav.NavigateTo("/");
+            Nav.NavigateTo("/", replace: true);
         }
         catch (HttpRequestException ex)
         {

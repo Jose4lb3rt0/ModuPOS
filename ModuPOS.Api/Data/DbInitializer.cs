@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using CloudinaryDotNet.Actions;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using ModuPOS.Api.Entities.Identity;
 using ModuPOS.Shared.Constants;
@@ -15,31 +16,23 @@ namespace ModuPOS.Api.Data
         {
             await context.Database.MigrateAsync();
 
-            //crear roles y claims
-            //administrador
-            if (!await roleManager.RoleExistsAsync(Roles.Administrador)) 
-            { 
-                var adminRole = new IdentityRole(Roles.Administrador);
-                await roleManager.CreateAsync(adminRole);
-
-                await roleManager.AddClaimAsync(adminRole, new Claim("Permission", Policies.SoloAdmin));
-                await roleManager.AddClaimAsync(adminRole, new Claim("Permission", Policies.GestionarInventario));
-                await roleManager.AddClaimAsync(adminRole, new Claim("Permission", Policies.RealizarVenta));
-            }
-
-            //cajero
-            if (!await roleManager.RoleExistsAsync(Roles.Cajero))
+            await AsegurarRolConClaims(roleManager, Roles.Administrador, new[]
             {
-                var cajeroRole = new IdentityRole(Roles.Cajero);
-                await roleManager.CreateAsync(cajeroRole);
-                await roleManager.AddClaimAsync(cajeroRole, new Claim("Permission", Policies.RealizarVenta));
-            }
+                Policies.SoloAdmin,
+                Policies.GestionarInventario,
+                Policies.RealizarVenta
+            });
+
+            await AsegurarRolConClaims(roleManager, Roles.Cajero, new[]
+            {
+                Policies.RealizarVenta
+            });
 
             //crear usuario administrador
             var adminEmail = "admin@modupos.com";
             var adminUsuario = await userManager.FindByEmailAsync(adminEmail);
 
-            if (adminUsuario == null) 
+            if (adminUsuario == null)
             {
                 var adminUser = new UsuarioAplicacion
                 {
@@ -54,6 +47,25 @@ namespace ModuPOS.Api.Data
 
                 var resultado = await userManager.CreateAsync(adminUser, "Admin123!");
                 if (resultado.Succeeded) await userManager.AddToRoleAsync(adminUser, Roles.Administrador);
+            }
+        }
+
+        private static async Task AsegurarRolConClaims(RoleManager<IdentityRole> roleManager, string nombreRol, string[] permisos)
+        {
+            var rol = await roleManager.FindByNameAsync(nombreRol);
+
+            if (rol == null) 
+            {
+                rol = new IdentityRole(nombreRol);
+                await roleManager.CreateAsync(rol);
+            }
+
+            var claimsExistentes = await roleManager.GetClaimsAsync(rol);
+
+            foreach (var permiso in permisos) 
+            {
+                if (!claimsExistentes.Any(c => c.Type == "Permission" && c.Value == permiso))
+                    await roleManager.AddClaimAsync(rol, new Claim("Permission", permiso));
             }
         }
     }

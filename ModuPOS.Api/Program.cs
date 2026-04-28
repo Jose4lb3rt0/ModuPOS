@@ -34,9 +34,7 @@ builder.Services.AddIdentity<UsuarioAplicacion, IdentityRole>(options =>
     options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
 
     options.User.RequireUniqueEmail = true;
-})
-.AddEntityFrameworkStores<ModuPosDbContext>()
-.AddDefaultTokenProviders();
+}).AddEntityFrameworkStores<ModuPosDbContext>().AddDefaultTokenProviders();
 
 //jwt autenticacion
 var jwtSettings = builder.Configuration.GetSection(JwtSettings.Section).Get<JwtSettings>()!;
@@ -115,7 +113,7 @@ using (var scope = app.Services.CreateScope())
 
         await DbInitializer.SeedAsync(context, userManager, roleManager);
     }
-    catch (Exception ex) 
+    catch (Exception ex)
     {
         var logger = servicios.GetService<ILogger<Program>>();
         logger.LogError(ex, "Error crítico durante la inicialización de la base de datos.");

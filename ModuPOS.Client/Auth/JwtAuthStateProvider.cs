@@ -15,9 +15,7 @@ namespace ModuPOS.Client.Auth
             new(new ClaimsPrincipal(new ClaimsIdentity()));
 
 
-        public JwtAuthStateProvider(
-            HttpClient http,
-            TokenService tokenService)
+        public JwtAuthStateProvider(HttpClient http, TokenService tokenService)
         {
             _http = http;
             _tokenService = tokenService;
@@ -56,7 +54,7 @@ namespace ModuPOS.Client.Auth
         }
 
         //logout
-        public async Task CerrarSesionAsync(string token)
+        public async Task CerrarSesionAsync()
         {
             await _tokenService.EliminarAsync();
             _http.DefaultRequestHeaders.Authorization = null;
@@ -70,7 +68,11 @@ namespace ModuPOS.Client.Auth
         private static AuthenticationState ConstruirEstado(string token)
         {
             var claims = ParsearClaims(token);
-            var identidad = new ClaimsIdentity(claims, "jwt");
+            var identidad = new ClaimsIdentity(
+                claims,
+                "jwt",
+                System.Security.Claims.ClaimTypes.Name,
+                System.Security.Claims.ClaimTypes.Role);
             return new AuthenticationState(new ClaimsPrincipal(identidad));
         }
 

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using CloudinaryDotNet.Actions;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using ModuPOS.Api.Entities.Identity;
@@ -39,7 +40,7 @@ namespace ModuPOS.Api.Services.Auth
             var roles = await _userManager.GetRolesAsync(usuario);
             var rol = roles.FirstOrDefault() ?? Roles.Cajero;
 
-            return GenerarToken(usuario, rol);
+            return await GenerarToken(usuario, rol);
         }
 
         public async Task<AuthResponse> RegistrarAsync(RegisterRequest request)
@@ -75,7 +76,7 @@ namespace ModuPOS.Api.Services.Auth
 
             await _userManager.AddToRoleAsync(usuario, request.Rol);
 
-            return GenerarToken(usuario, request.Rol);
+            return await GenerarToken(usuario, request.Rol);
         }
 
         public async Task<bool> DesactivarUsuarioAsync(string userId)
@@ -88,7 +89,7 @@ namespace ModuPOS.Api.Services.Auth
             return true;
         }
 
-        private AuthResponse GenerarToken(UsuarioAplicacion usuario, string rol)
+        private async Task<AuthResponse> GenerarToken(UsuarioAplicacion usuario, string rolNombre)
         {
             var expiracion = DateTime.UtcNow.AddMinutes(_jwt.ExpirationMinutes);
 
@@ -98,9 +99,17 @@ namespace ModuPOS.Api.Services.Auth
                 new(ClaimTypes.Email, usuario.Email!),
                 new(ClaimTypes.Name, usuario.Nombres),
                 new(ClaimTypes.Surname, usuario.ApellidoPaterno + " " + usuario.ApellidoMaterno),
-                new(ClaimTypes.Role, rol),
+                new(ClaimTypes.Role, rolNombre),
                 new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
+
+            var rol = await _roleManager.FindByNameAsync(rolNombre);
+            if (rol != null)
+            {
+                var roleClaims = await _roleManager.GetClaimsAsync(rol);
+                claims.AddRange(roleClaims);
+            }
+
 
             var clave = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwt.SecretKey));
             var credenciales = new SigningCredentials(clave, SecurityAlgorithms.HmacSha256);
@@ -123,7 +132,7 @@ namespace ModuPOS.Api.Services.Auth
                 ApellidoPaterno: usuario.ApellidoPaterno,
                 ApellidoMaterno: usuario.ApellidoMaterno,
                 Email: usuario.Email!,
-                Rol: rol
+                Rol: rolNombre
             );
         }
     }
