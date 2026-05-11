@@ -25,7 +25,7 @@ public class Categoria extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "categoria_padre_id") //no "referencedColumnName" porque es autoreferencia
-    private Categoria idCategoriaPadre;
+    private Categoria categoriaPadre;
 
     @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @JoinColumn(name = "imagen_id", referencedColumnName = "id")
