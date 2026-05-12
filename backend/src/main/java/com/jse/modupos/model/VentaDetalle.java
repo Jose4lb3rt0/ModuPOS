@@ -27,12 +27,9 @@ public class VentaDetalle extends BaseEntity {
     @Column(nullable = false)
     private Integer cantidad;
 
-    @Column(name = "precio_unitario_historico", nullable = false, precision = 18, scale = 4)
-    private BigDecimal precioUnitarioHistorico;
-
-    @Column(nullable = false    , precision = 18, scale = 4)
-    private BigDecimal descuento = BigDecimal.ZERO;
+    @Column(name = "precio_unitario", nullable = false, precision = 18, scale = 4)
+    private BigDecimal precioUnitario;
 
     @Column(nullable = false, precision = 18, scale = 4)
-    private BigDecimal importe; // (cantidad * precio_unitario) - descuento
+    private BigDecimal subtotal;
 }

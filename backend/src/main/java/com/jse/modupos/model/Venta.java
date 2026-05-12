@@ -47,4 +47,16 @@ public class Venta extends BaseEntity {
 
     @OneToMany(mappedBy = "venta", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<VentaDetalle> detalles = new ArrayList<>();
+
+    public void addDetalle(VentaDetalle detalle) {
+        detalles.add(detalle);
+        detalle.setVenta(this);
+    }
+
+    public void clearDetalles() {
+        for (VentaDetalle detalle : detalles) {
+            detalle.setVenta(null);
+        }
+        detalles.clear();
+    }
 }
