@@ -1,10 +1,11 @@
 package com.jse.modupos.controller;
 
 import com.jse.modupos.dto.CategoriaDTO;
-import com.jse.modupos.service.CategoriaService;
+import com.jse.modupos.dto.ProductoDTO;
+import com.jse.modupos.service.ProductoService;
 import jakarta.validation.Valid;
+import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,34 +15,34 @@ import java.io.IOException;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/categorias")
+@RequestMapping("/api/productos")
 @RequiredArgsConstructor
-public class CategoriaController {
+public class ProductoController {
 
-    private final CategoriaService service;
+    private final ProductoService service;
 
     @GetMapping
-    public ResponseEntity<List<CategoriaDTO>> listar() {
+    public ResponseEntity<List<ProductoDTO>> listar() {
         return ResponseEntity.ok(service.listarTodas());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<CategoriaDTO> obtenerPorId(@PathVariable Long id) {
+    public ResponseEntity<ProductoDTO> obtenerPorId(@PathVariable Long id) {
         return ResponseEntity.ok(service.buscarPorId(id));
     }
 
     @PostMapping(consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
-    public ResponseEntity<CategoriaDTO> crear(
-            @RequestPart("categoria") @Valid CategoriaDTO dto,
+    public ResponseEntity<ProductoDTO> crear(
+            @RequestPart("producto") @Valid ProductoDTO dto,
             @RequestPart(value = "archivo", required = false) MultipartFile archivo
     ) throws IOException {
-        return new ResponseEntity<>(service.crear(dto, archivo), HttpStatus.CREATED);
+        return ResponseEntity.ok(service.crear(dto, archivo));
     }
 
     @PutMapping(value = "/{id}", consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
-    public ResponseEntity<CategoriaDTO> actualizar(
-            @PathVariable Long id, 
-            @RequestPart("categoria") @Valid CategoriaDTO dto,
+    public ResponseEntity<ProductoDTO> actualizar(
+            @PathVariable Long id,
+            @RequestPart("producto") @Valid ProductoDTO dto,
             @RequestPart(value = "archivo", required = false) MultipartFile archivo
     ) throws IOException {
         return ResponseEntity.ok(service.actualizar(id, dto, archivo));
@@ -50,6 +51,6 @@ public class CategoriaController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         service.eliminar(id);
-        return ResponseEntity.noContent().build(); //204
+        return ResponseEntity.noContent().build();
     }
 }
