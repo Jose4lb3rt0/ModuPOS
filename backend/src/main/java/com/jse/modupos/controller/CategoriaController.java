@@ -5,9 +5,12 @@ import com.jse.modupos.service.CategoriaService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 
 @RestController
@@ -27,14 +30,21 @@ public class CategoriaController {
         return ResponseEntity.ok(service.buscarPorId(id));
     }
 
-    @PostMapping
-    public ResponseEntity<CategoriaDTO> crear(@Valid @RequestBody CategoriaDTO dto) {
-        return new ResponseEntity<>(service.crear(dto), HttpStatus.CREATED);
+    @PostMapping(consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
+    public ResponseEntity<CategoriaDTO> crear(
+            @RequestPart("categoria") @Valid CategoriaDTO dto,
+            @RequestPart(value = "archivo", required = false) MultipartFile archivo
+    ) throws IOException {
+        return new ResponseEntity<>(service.crear(dto, archivo), HttpStatus.CREATED);
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<CategoriaDTO> actualizar(@PathVariable Long id, @Valid @RequestBody CategoriaDTO dto) {
-        return ResponseEntity.ok(service.actualizar(id, dto));
+    @PutMapping(value = "/{id}", consumes = { MediaType.MULTIPART_FORM_DATA_VALUE })
+    public ResponseEntity<CategoriaDTO> actualizar(
+            @PathVariable Long id, 
+            @RequestPart("categoria") @Valid CategoriaDTO dto,
+            @RequestPart(value = "archivo", required = false) MultipartFile archivo
+    ) throws IOException {
+        return ResponseEntity.ok(service.actualizar(id, dto, archivo));
     }
 
     @DeleteMapping("/{id}")

@@ -5,8 +5,9 @@ import com.jse.modupos.model.Categoria;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
+import org.mapstruct.NullValuePropertyMappingStrategy;
 
-@Mapper(componentModel = "spring") //permitir inyectar con @autowired
+@Mapper(componentModel = "spring", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
 public interface CategoriaMapper {
 
     @Mapping(source = "categoriaPadre.id", target = "categoriaPadreId")
